@@ -1,0 +1,17 @@
+[
+  {
+    "Id": "937c84e0-8444-47b8-82f0-13ff05e582d4",
+    "ProgramName": "Quick Wash",
+    "Temperature": 1,
+    "SpinSpeed": 1200,
+    "WaterLevel": 2,
+    "PreWash": false,
+    "ExtraRinse": false,
+    "QuickMode": true,
+    "StartTime": "2026-09-24T08:12:42.2506521+05:30",
+    "EndTime": "2026-09-24T08:12:57.3275536+05:30",
+    "ClothesCount": 8,
+    "Status": 0,
+    "Duration": "00:00:15.0769015"
+  }
+]

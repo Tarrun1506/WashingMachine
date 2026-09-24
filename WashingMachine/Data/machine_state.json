@@ -1,0 +1,27 @@
+{
+  "state": 0,
+  "clothesCount": 0,
+  "doorLocked": false,
+  "settings": {
+    "program": {
+      "name": "Cotton",
+      "totalDurationSeconds": 70,
+      "recommendedTemperature": 1,
+      "defaultSpinSpeed": 1000,
+      "defaultWaterLevel": 2,
+      "supportsPreWash": true,
+      "description": "Full cycle for everyday cotton garments"
+    },
+    "temperature": 1,
+    "spinSpeed": 1000,
+    "waterLevel": 1,
+    "preWash": false,
+    "extraRinse": false,
+    "quickMode": false
+  },
+  "currentCycle": null,
+  "isCycleActive": false,
+  "isCyclePaused": false,
+  "hasClothes": false,
+  "availableCapacity": 10
+}

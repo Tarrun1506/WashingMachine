@@ -1,13 +1,17 @@
-﻿using WashingMachine.Models.Common;
-using WashingMachine.Models.Entities;
+﻿using WashingMachine.Models;
 
 namespace WashingMachine.Services;
 
-/// <summary>Service for managing favourite wash configurations.</summary>
+/// <summary>
+/// Provides favourite operations.
+/// </summary>
 public interface IFavouriteService
 {
     Task<List<Favourite>> GetAllAsync();
-    Task<ServiceResult> AddAsync(string name, WashSettings settings);
-    Task<ServiceResult> DeleteAsync(Guid id);
+
+    Task AddAsync(Favourite favourite);
+
+    Task DeleteAsync(Guid id);
+
     Task<Favourite?> GetByIdAsync(Guid id);
 }

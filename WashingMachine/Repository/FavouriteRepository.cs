@@ -1,63 +1,56 @@
-﻿using WashingMachine.Models.Entities;
-using WashingMachine.Repository.Abstractions;
+﻿using WashingMachine.Constants;
+using WashingMachine.Models;
 using WashingMachine.Storage;
 
-namespace WashingMachine.Repository.Implementations;
+namespace WashingMachine.Repository;
 
 /// <summary>
-/// Favourite repository implementation.
-/// Delegates all file I/O to IStorage — demonstrates Dependency Inversion and
-/// the Repository Pattern: callers work against an interface, not concrete storage.
-/// LINQ is used for in-memory filtering and lookup.
+/// Provides favourite repository operations.
 /// </summary>
-public sealed class FavouriteRepository : IFavouriteRepository
+public class FavouriteRepository : IFavouriteRepository
 {
-    private const string StoreName = "favourites";
     private readonly IStorage _storage;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FavouriteRepository"/> class.
+    /// </summary>
+    /// <param name="storage">Storage implementation.</param>
     public FavouriteRepository(IStorage storage)
     {
-        _storage = storage;
+        this._storage = storage;
     }
 
-    public Task<List<Favourite>> GetAllAsync() =>
-        _storage.LoadAllAsync<Favourite>(StoreName);
+    /// <inheritdoc/>
+    public async Task<List<Favourite>> GetAllAsync()
+    {
+        return await this._storage.LoadAsync<Favourite>(Configurables.FavouriteFilePath);
+    }
 
+    /// <inheritdoc/>
     public async Task<Favourite?> GetByIdAsync(Guid id)
     {
-        var all = await GetAllAsync();
-        // LINQ: FirstOrDefault to find by id
-        return all.FirstOrDefault(f => f.Id == id);
+        List<Favourite> favourites = await this.GetAllAsync();
+        return favourites.FirstOrDefault(favourite => favourite.Id == id);
     }
 
-    public async Task<Favourite?> GetByNameAsync(string name)
-    {
-        var all = await GetAllAsync();
-        // LINQ: case-insensitive name search
-        return all.FirstOrDefault(f =>
-            f.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-    }
-
+    /// <inheritdoc/>
     public async Task AddAsync(Favourite favourite)
     {
-        var all = await GetAllAsync();
-        all.Add(favourite);
-        await _storage.SaveAllAsync(StoreName, all);
+        List<Favourite> favourites = await this.GetAllAsync();
+        favourites.Add(favourite);
+        await this._storage.SaveAsync(Configurables.FavouriteFilePath, favourites);
     }
 
-    public async Task UpdateAsync(Favourite favourite)
-    {
-        var all = await GetAllAsync();
-        var index = all.FindIndex(f => f.Id == favourite.Id);
-        if (index >= 0) all[index] = favourite;
-        await _storage.SaveAllAsync(StoreName, all);
-    }
-
+    /// <inheritdoc/>
     public async Task DeleteAsync(Guid id)
     {
-        var all = await GetAllAsync();
-        // LINQ: RemoveAll to delete by predicate
-        all.RemoveAll(f => f.Id == id);
-        await _storage.SaveAllAsync(StoreName, all);
+        List<Favourite> favourites = await this.GetAllAsync();
+        Favourite? favourite = favourites.FirstOrDefault(item => item.Id == id);
+        if (favourite != null)
+        {
+            favourites.Remove(favourite);
+        }
+
+        await this._storage.SaveAsync(Configurables.FavouriteFilePath, favourites);
     }
 }

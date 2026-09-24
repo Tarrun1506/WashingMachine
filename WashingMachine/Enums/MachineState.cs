@@ -1,15 +1,14 @@
 ﻿namespace WashingMachine.Enums;
 
-/// <summary>The operational state of the washing machine.</summary>
+/// <summary>
+/// Defines washing machine states.
+/// </summary>
 public enum MachineState
 {
     Idle,
     Ready,
-    Washing,
+    Running,
     Paused,
-    AddingClothes,
-    Rinsing,
-    Spinning,
     Completed,
-    Cancelled
+    Cancelled,
 }

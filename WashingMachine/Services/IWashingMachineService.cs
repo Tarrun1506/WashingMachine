@@ -1,43 +1,33 @@
-using WashingMachine.Models.Common;
-using WashingMachine.Models.Entities;
-using WashingMachine.Models.Events;
+using WashingMachine.Events;
+using WashingMachine.Models;
 
 namespace WashingMachine.Services;
 
 /// <summary>
-/// Core service interface for all washing machine operations.
-/// Controllers depend on this abstraction, not the concrete implementation.
+/// Provides washing machine operations.
 /// </summary>
 public interface IWashingMachineService
 {
-    /// <summary>The current machine state snapshot.</summary>
     WashingMachineModel Machine { get; }
-    void RestoreState(WashingMachineModel state);
-    void AcknowledgeCompletion();
 
-    // ── Clothes management ───────────────────────────────────────────────
-    ServiceResult AddClothes(int count);
-    ServiceResult RemoveClothes(int count);
+    event EventHandler<WashProgressEventArgs>? ProgressChanged;
+    event EventHandler? CycleCompleted;
+    event EventHandler? CycleCancelled;
 
-    // ── Settings ─────────────────────────────────────────────────────────
-    ServiceResult ApplySettings(WashSettings settings);
-    ServiceResult ApplyFavourite(Favourite favourite);
+    void AddClothes(int count);
+    void RemoveClothes(int count);
+    void ApplySettings(WashSettings settings);
+    void ApplyFavourite(Favourite favourite);
 
-    // ── Cycle lifecycle ──────────────────────────────────────────────────
-    /// <summary>Starts the washing cycle asynchronously. Does NOT block.</summary>
-    ServiceResult StartCycle();
-    ServiceResult PauseCycle();
-    ServiceResult ResumeCycle();
-    ServiceResult CancelCycle();
+    /// <summary>Starts the wash cycle in the background. Does NOT block.</summary>
+    void StartCycle();
 
-    /// <summary>Pauses the cycle and unlocks the door so clothes can be added.</summary>
-    ServiceResult PauseForAddingClothes();
-    ServiceResult FinishAddingClothes();
+    void PauseCycle();
+    void ResumeCycle();
+    void CancelCycle();
 
-    // ── Events ───────────────────────────────────────────────────────────
-    event EventHandler<WashProgressEventArgs> ProgressChanged;
-    event EventHandler<MachineStateChangedEventArgs> StateChanged;
-    event EventHandler<StageChangedEventArgs> StageChanged;
-    event EventHandler CycleCompleted;
-    event EventHandler CycleCancelled;
+    void RestoreState(WashingMachineModel machine);
+
+    /// <summary>Resumes a previously interrupted cycle in the background. Does NOT block.</summary>
+    void ResumeSavedCycle();
 }

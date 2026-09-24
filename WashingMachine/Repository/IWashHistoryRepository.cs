@@ -1,15 +1,21 @@
-﻿using WashingMachine.Models.Entities;
+﻿using WashingMachine.Models;
 
-namespace WashingMachine.Repository.Abstractions;
+namespace WashingMachine.Repository;
 
 /// <summary>
-/// CRUD repository for wash history records.
+/// Provides wash history repository operations.
 /// </summary>
 public interface IWashHistoryRepository
 {
+    /// <summary>
+    /// Gets all history records.
+    /// </summary>
+    /// <returns>Collection of history records.</returns>
     Task<List<WashHistory>> GetAllAsync();
-    Task<WashHistory?> GetByIdAsync(Guid id);
+
+    /// <summary>
+    /// Adds a history record.
+    /// </summary>
+    /// <param name="history">History record.</param>
     Task AddAsync(WashHistory history);
-    Task UpdateAsync(WashHistory history);
-    Task DeleteAsync(Guid id);
 }

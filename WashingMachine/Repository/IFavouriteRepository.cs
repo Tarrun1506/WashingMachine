@@ -1,17 +1,34 @@
-﻿using WashingMachine.Models.Entities;
+﻿using WashingMachine.Models;
 
-namespace WashingMachine.Repository.Abstractions;
+namespace WashingMachine.Repository;
 
 /// <summary>
-/// CRUD repository for favourite wash configurations.
-/// Depends only on abstractions — concrete storage is injected.
+/// Provides favourite repository operations.
 /// </summary>
 public interface IFavouriteRepository
 {
+    /// <summary>
+    /// Gets all favourites.
+    /// </summary>
+    /// <returns>Collection of favourites.</returns>
     Task<List<Favourite>> GetAllAsync();
+
+    /// <summary>
+    /// Gets a favourite by identifier.
+    /// </summary>
+    /// <param name="id">Favourite identifier.</param>
+    /// <returns>Matching favourite.</returns>
     Task<Favourite?> GetByIdAsync(Guid id);
-    Task<Favourite?> GetByNameAsync(string name);
-    Task AddAsync(Favourite favourite);
-    Task UpdateAsync(Favourite favourite);
+
+    /// <summary>
+    /// Adds a favourite.
+    /// </summary>
+    /// <param name="favorite">Favourite to add.</param>
+    Task AddAsync(Favourite favorite);
+
+    /// <summary>
+    /// Deletes a favourite.
+    /// </summary>
+    /// <param name="id">Favourite identifier.</param>
     Task DeleteAsync(Guid id);
 }

@@ -1,8 +1,10 @@
 ﻿namespace WashingMachine.Enums;
 
-/// <summary>Final outcome of a wash cycle recorded in history.</summary>
+/// <summary>
+/// Defines final cycle statuses.
+/// </summary>
 public enum CycleStatus
 {
     Completed,
-    Cancelled
+    Cancelled,
 }

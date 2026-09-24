@@ -1,71 +1,62 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using WashingMachine.Controllers;
-using WashingMachine.Repository.Implementations;
+using WashingMachine.Exceptions;
+using WashingMachine.Helpers;
+using WashingMachine.Repository;
 using WashingMachine.Services;
 using WashingMachine.Storage;
 
 namespace WashingMachine;
 
-class Program
+/// <summary>
+/// Entry point of the application.
+/// </summary>
+internal class Program
 {
-    static async Task Main()
+    /// <summary>
+    /// Starts the application.
+    /// </summary>
+    public static async Task Main(string[] args)
     {
         Console.Title = "WashMate - Smart Washing Machine";
         Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-        var dataDirectory = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "WashingMachine", "Data");
-        dataDirectory = Path.GetFullPath(dataDirectory);
-
-        var storage = new JsonFileStorage(dataDirectory);
-        var favouriteRepository = new FavouriteRepository(storage);
-        var historyRepository   = new WashHistoryRepository(storage);
-
-        var historyService    = new WashHistoryService(historyRepository);
-        var machineService    = new WashingMachineService(historyService);
-        var favouriteService  = new FavouriteService(favouriteRepository);
-
-        var controller = new WashingMachineController(machineService, favouriteService, historyService, storage);
-
-        ShowSplash();
+        Logger logger = new();
+        logger.Log("App", "======= Application Started =======");
 
         try
         {
-            await controller.RunAsync();
+            IStorage storage = new JsonStorage();
+
+            IFavouriteRepository    favouriteRepository    = new FavouriteRepository(storage);
+            IWashHistoryRepository  historyRepository      = new WashHistoryRepository(storage);
+            IMachineStateRepository machineStateRepository = new MachineStateRepository(storage);
+
+            IWashHistoryService    historyService        = new WashHistoryService(historyRepository);
+            IFavouriteService      favouriteService      = new FavouriteService(favouriteRepository);
+            IWashingMachineService washingMachineService = new WashingMachineService(historyService, logger);
+
+            IWashingMachineController controller = new WashingMachineController(
+                washingMachineService,
+                favouriteService,
+                historyService,
+                machineStateRepository,
+                logger);
+
+            await controller.StartAsync();
+        }
+        catch (StorageException ex)
+        {
+            logger.LogError("Storage", ex.Message);
+            Console.WriteLine($"Storage Error: {ex.Message}");
         }
         catch (Exception ex)
         {
-            Console.ResetColor();
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Unexpected Error: " + ex.Message);
-            await LogUnhandledAsync(dataDirectory, ex);
+            logger.LogError("Fatal", ex.Message);
+            Console.WriteLine($"Unexpected Error: {ex.Message}");
         }
-    }
-
-    static void ShowSplash()
-    {
-        Console.Clear();
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("========================================");
-        Console.WriteLine("        WASHMATE v1.0");
-        Console.WriteLine("     Smart Washing Machine System");
-        Console.WriteLine("========================================");
-        Console.ResetColor();
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine("Loading favourites and history...");
-        Console.ResetColor();
-        Console.WriteLine();
-        System.Threading.Thread.Sleep(800);
-    }
-
-    static async Task LogUnhandledAsync(string dir, Exception ex)
-    {
-        try
+        finally
         {
-            var path = Path.Combine(dir, "application-log.txt");
-            await File.AppendAllTextAsync(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] UNHANDLED: {ex}{Environment.NewLine}");
+            logger.Log("App", "======= Application Stopped =======");
         }
-        catch { }
     }
 }

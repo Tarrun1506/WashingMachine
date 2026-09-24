@@ -1,52 +1,36 @@
-﻿using WashingMachine.Models.Entities;
-using WashingMachine.Repository.Abstractions;
+﻿using WashingMachine.Constants;
+using WashingMachine.Models;
 using WashingMachine.Storage;
 
-namespace WashingMachine.Repository.Implementations;
+namespace WashingMachine.Repository;
 
 /// <summary>
-/// Wash history repository implementation.
-/// Persists history records via IStorage and uses LINQ for all queries
-/// exposed to the service layer.
+/// Provides wash history repository operations.
 /// </summary>
-public sealed class WashHistoryRepository : IWashHistoryRepository
+public class WashHistoryRepository : IWashHistoryRepository
 {
-    private const string StoreName = "wash-history";
     private readonly IStorage _storage;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WashHistoryRepository"/> class.
+    /// </summary>
+    /// <param name="storage">Storage implementation.</param>
     public WashHistoryRepository(IStorage storage)
     {
-        _storage = storage;
+        this._storage = storage;
     }
 
-    public Task<List<WashHistory>> GetAllAsync() =>
-        _storage.LoadAllAsync<WashHistory>(StoreName);
-
-    public async Task<WashHistory?> GetByIdAsync(Guid id)
+    /// <inheritdoc/>
+    public async Task<List<WashHistory>> GetAllAsync()
     {
-        var all = await GetAllAsync();
-        return all.FirstOrDefault(h => h.Id == id);
+        return await this._storage.LoadAsync<WashHistory>(Configurables.WashHistoryFilePath);
     }
 
+    /// <inheritdoc/>
     public async Task AddAsync(WashHistory history)
     {
-        var all = await GetAllAsync();
-        all.Add(history);
-        await _storage.SaveAllAsync(StoreName, all);
-    }
-
-    public async Task UpdateAsync(WashHistory history)
-    {
-        var all = await GetAllAsync();
-        var index = all.FindIndex(h => h.Id == history.Id);
-        if (index >= 0) all[index] = history;
-        await _storage.SaveAllAsync(StoreName, all);
-    }
-
-    public async Task DeleteAsync(Guid id)
-    {
-        var all = await GetAllAsync();
-        all.RemoveAll(h => h.Id == id);
-        await _storage.SaveAllAsync(StoreName, all);
+        List<WashHistory> historyRecords = await this.GetAllAsync();
+        historyRecords.Add(history);
+        await this._storage.SaveAsync(Configurables.WashHistoryFilePath, historyRecords);
     }
 }

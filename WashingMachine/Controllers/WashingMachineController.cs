@@ -1,279 +1,363 @@
-using System;
-using WashingMachine.Models.Entities;
+using WashingMachine.Constants;
 using WashingMachine.Enums;
+using WashingMachine.Events;
+using WashingMachine.Helpers;
+using WashingMachine.Models;
+using WashingMachine.Repository;
 using WashingMachine.Services;
-using WashingMachine.Storage;
-using System.Threading.Tasks;
+using WashingMachine.Views;
 
 namespace WashingMachine.Controllers;
 
-public sealed class WashingMachineController
+/// <summary>
+/// Controls the washing machine application flow.
+/// </summary>
+public class WashingMachineController : IWashingMachineController
 {
-    private readonly IWashingMachineService _machineService;
-    private readonly IFavouriteService      _favouriteService;
-    private readonly IWashHistoryService    _historyService;
-    private readonly IStorage               _storage;
+    private readonly DashboardView       _dashboardView;
+    private readonly ConfigurationView   _configurationView;
+    private readonly FavouriteView       _favouriteView;
+    private readonly HistoryView         _historyView;
+    private readonly PauseView           _pauseView;
+    private readonly WashingView         _washingView;
 
-    private bool _running = true;
+    private readonly IWashingMachineService  _machineService;
+    private readonly IFavouriteService       _favouriteService;
+    private readonly IWashHistoryService     _historyService;
+    private readonly IMachineStateRepository _machineStateRepository;
+    private readonly Logger                  _logger;
 
+    private bool _isRunning = true;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WashingMachineController"/> class.
+    /// </summary>
     public WashingMachineController(
-        IWashingMachineService machineService,
-        IFavouriteService      favouriteService,
-        IWashHistoryService    historyService,
-        IStorage               storage)
+        IWashingMachineService  machineService,
+        IFavouriteService       favouriteService,
+        IWashHistoryService     historyService,
+        IMachineStateRepository machineStateRepository,
+        Logger                  logger)
     {
-        _machineService   = machineService;
-        _favouriteService = favouriteService;
-        _historyService   = historyService;
-        _storage          = storage;
+        _machineService         = machineService;
+        _favouriteService       = favouriteService;
+        _historyService         = historyService;
+        _machineStateRepository = machineStateRepository;
+        _logger                 = logger;
+
+        _dashboardView     = new DashboardView();
+        _configurationView = new ConfigurationView();
+        _favouriteView     = new FavouriteView();
+        _historyView       = new HistoryView();
+        _pauseView         = new PauseView();
+        _washingView       = new WashingView();
     }
 
-    public async Task RunAsync()
+    /// <inheritdoc/>
+    public async Task StartAsync()
     {
-        // Restore previous state if exists
-        var savedState = await _storage.LoadMachineStateAsync();
-        if (savedState != null)
+        _logger.Log("App", "Starting application");
+
+        // Subscribe to machine events
+        _machineService.ProgressChanged  += OnProgressChanged;
+        _machineService.CycleCompleted   += OnCycleCompleted;
+        _machineService.CycleCancelled   += OnCycleCancelled;
+
+        // Restore previous state from file (file I/O — async is correct here)
+        WashingMachineModel? saved = await _machineStateRepository.LoadAsync();
+        if (saved != null)
         {
-            _machineService.RestoreState(savedState);
-            Console.WriteLine("Restored machine state from previous session.");
-            await Task.Delay(1000);
-        }
+            _machineService.RestoreState(saved);
+            Console.WriteLine("Previous machine state restored.");
 
-        while (_running)
-        {
-            var machine = _machineService.Machine;
-
-            // Save state on every dashboard loop just in case
-            await _storage.SaveMachineStateAsync(machine);
-
-            if (machine.IsCycleActive || machine.IsCyclePaused)
+            if (saved.State == MachineState.Running)
             {
-                await HandleWashingScreenAsync();
-                continue;
+                _machineService.ResumeSavedCycle(); // fires in background, no await needed
+                Console.WriteLine("Resuming interrupted washing cycle in background...");
             }
 
-            if (machine.State is MachineState.Completed or MachineState.Cancelled)
-            {
-                Console.ForegroundColor = machine.State == MachineState.Completed ? ConsoleColor.Green : ConsoleColor.Red;
-                Console.WriteLine(machine.State == MachineState.Completed
-                    ? "\nWashing complete! Cycle recorded in history."
-                    : "\nCycle cancelled. Recorded in history.");
-                Console.ResetColor();
-                Console.WriteLine("Press Enter to continue...");
-                Console.ReadLine();
-                // Acknowledged, so move to Idle
-                _machineService.AcknowledgeCompletion(); 
-                continue;
-            }
-
-            var input = Views.Screens.DashboardView.Show(machine);
-            await HandleDashboardInputAsync(input);
+            Console.WriteLine("Press Enter to continue...");
+            Console.ReadLine();
         }
 
-        // Save on exit
-        await _storage.SaveMachineStateAsync(_machineService.Machine);
+        // Main application loop
+        while (_isRunning)
+        {
+            MenuOption option = _dashboardView.Show(_machineService.Machine);
+            await HandleMenuOptionAsync(option);
+        }
+
+        _logger.Log("App", "Application exiting");
     }
 
-    private async Task HandleDashboardInputAsync(string input)
+    private async Task HandleMenuOptionAsync(MenuOption option)
     {
-        switch (input)
+        switch (option)
         {
-            case "1": HandleStartWashing();    break;
-            case "2": HandleConfigure();       break;
-            case "3": HandleAddClothes();      break;
-            case "4": HandleRemoveClothes();   break;
-            case "5": await HandleFavouritesAsync(); break;
-            case "6": await HandleHistoryAsync();    break;
-            case "7": await HandleWashingScreenAsync(); break;
-            case "0": _running = false;        break;
+            case MenuOption.StartWash:
+                StartWash();
+                break;
+
+            case MenuOption.ConfigureSettings:
+                ConfigureMachine();
+                break;
+
+            case MenuOption.AddClothes:
+                AddClothes();
+                break;
+
+            case MenuOption.RemoveClothes:
+                RemoveClothes();
+                break;
+
+            case MenuOption.ManageFavourites:
+                await ManageFavouritesAsync();
+                break;
+
+            case MenuOption.ViewHistory:
+                await ViewHistoryAsync();
+                break;
+
+            case MenuOption.ViewProgress:
+                ShowProgress();
+                break;
+
+            case MenuOption.PauseCycle:
+                HandlePause();
+                break;
+
+            case MenuOption.Exit:
+                await ExitAsync();
+                break;
+
             default:
-                Console.WriteLine("Invalid option. Press Enter to try again.");
-                Console.ReadLine();
+                _dashboardView.DisplayError("Invalid choice. Please try again.");
                 break;
         }
     }
 
-    private void HandleStartWashing()
+    // ── Menu handlers ────────────────────────────────────────────────────────
+
+    private void StartWash()
     {
-        var result = _machineService.StartCycle();
-        if (!result.Success)
+        try
         {
-            ShowError(result.ErrorMessage!);
+            _machineService.StartCycle(); // no await — runs in background
+            _logger.Log("Controller", "Cycle started");
+            _dashboardView.DisplayMessage("Washing cycle started! Use option 7 to check progress.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("StartWash", ex.Message);
+            _dashboardView.DisplayError(ex.Message);
+        }
+    }
+
+    private void ConfigureMachine()
+    {
+        try
+        {
+            WashSettings settings = _configurationView.GetSettings();
+            _machineService.ApplySettings(settings);
+            _dashboardView.DisplayMessage("Settings applied.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("ConfigureMachine", ex.Message);
+            _dashboardView.DisplayError(ex.Message);
+        }
+    }
+
+    private void AddClothes()
+    {
+        try
+        {
+            int count = _dashboardView.ReadClothesCount();
+            _machineService.AddClothes(count);
+            _dashboardView.DisplayMessage($"Added {count} clothes. Total: {_machineService.Machine.ClothesCount}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("AddClothes", ex.Message);
+            _dashboardView.DisplayError(ex.Message);
+        }
+    }
+
+    private void RemoveClothes()
+    {
+        try
+        {
+            int count = _dashboardView.ReadClothesCount();
+            _machineService.RemoveClothes(count);
+            _dashboardView.DisplayMessage($"Removed. Remaining: {_machineService.Machine.ClothesCount}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("RemoveClothes", ex.Message);
+            _dashboardView.DisplayError(ex.Message);
+        }
+    }
+
+    private async Task ViewHistoryAsync()
+    {
+        _logger.Log("Controller", "Viewing history");
+        List<WashHistory> history = await _historyService.GetAllAsync();
+        _historyView.DisplayHistory(history);
+    }
+
+    private async Task ManageFavouritesAsync()
+    {
+        FavouriteMenuOption option = _favouriteView.ShowMenu();
+        switch (option)
+        {
+            case FavouriteMenuOption.Apply:
+                await ApplyFavouriteAsync();
+                break;
+
+            case FavouriteMenuOption.SaveCurrent:
+                await SaveFavouriteAsync();
+                break;
+
+            case FavouriteMenuOption.Delete:
+                await DeleteFavouriteAsync();
+                break;
+
+            default:
+                break; // Back
+        }
+    }
+
+    private async Task ApplyFavouriteAsync()
+    {
+        List<Favourite> favourites = await _favouriteService.GetAllAsync();
+        if (favourites.Count == 0)
+        {
+            _dashboardView.DisplayError("No favourites saved yet.");
             return;
         }
-        Console.WriteLine("Washing cycle started!");
-        System.Threading.Thread.Sleep(1000);
-    }
 
-    private void HandleConfigure()
-    {
-        var newSettings = Views.Screens.ConfigurationView.Show(_machineService.Machine.Settings);
-        if (newSettings == null) return; 
-
-        var result = _machineService.ApplySettings(newSettings);
-        if (!result.Success) ShowError(result.ErrorMessage!);
-    }
-
-    private void HandleAddClothes()
-    {
-        var (count, confirmed) = Views.Screens.AddClothesView.ShowAdd(_machineService.Machine);
-        if (!confirmed) return;
-
-        var result = _machineService.AddClothes(count);
-        if (!result.Success) ShowError(result.ErrorMessage!);
-    }
-
-    private void HandleRemoveClothes()
-    {
-        var (count, confirmed) = Views.Screens.AddClothesView.ShowRemove(_machineService.Machine);
-        if (!confirmed) return;
-
-        var result = _machineService.RemoveClothes(count);
-        if (!result.Success) ShowError(result.ErrorMessage!);
-    }
-
-    private async Task HandleWashingScreenAsync()
-    {
-        while (true)
+        Guid id = _favouriteView.SelectFavourite(favourites);
+        Favourite? fav = await _favouriteService.GetByIdAsync(id);
+        if (fav != null)
         {
-            await _storage.SaveMachineStateAsync(_machineService.Machine);
-            var machine = _machineService.Machine;
-
-            if (machine.State is MachineState.Idle or MachineState.Ready or
-                MachineState.Completed or MachineState.Cancelled)
-                return;
-
-            if (machine.IsCyclePaused)
-            {
-                await HandlePauseScreenAsync();
-                continue;
-            }
-
-            var input = Views.Screens.WashingView.Show(machine);
-
-            switch (input.ToUpper())
-            {
-                case "1": 
-                    var pRes = _machineService.PauseCycle();
-                    if (!pRes.Success) ShowError(pRes.ErrorMessage!);
-                    break;
-                case "2": 
-                    var aRes = _machineService.PauseForAddingClothes();
-                    if (!aRes.Success) ShowError(aRes.ErrorMessage!);
-                    break;
-                case "3": 
-                    _machineService.CancelCycle();
-                    Console.WriteLine("Cycle cancelled.");
-                    System.Threading.Thread.Sleep(1000);
-                    return;
-                case "0":
-                    _running = false;
-                    return;
-                case "D": // done naturally
-                    return; 
-            }
+            _machineService.ApplyFavourite(fav);
+            _logger.Log("Controller", $"Applied favourite '{fav.Name}'");
+            _dashboardView.DisplayMessage($"Favourite '{fav.Name}' applied.");
         }
     }
 
-    private async Task HandlePauseScreenAsync()
+    private async Task SaveFavouriteAsync()
     {
-        var input = Views.Screens.PauseView.Show(_machineService.Machine);
+        Favourite fav = _favouriteView.CreateFavourite(_machineService.Machine.Settings);
+        await _favouriteService.AddAsync(fav);
+        _logger.Log("Controller", $"Saved favourite '{fav.Name}'");
+        _dashboardView.DisplaySuccess(CommonMessages.FavouriteSaved);
+    }
 
-        switch (input.ToUpper())
+    private async Task DeleteFavouriteAsync()
+    {
+        List<Favourite> favourites = await _favouriteService.GetAllAsync();
+        if (favourites.Count == 0)
         {
-            case "1":
-                var rRes = _machineService.ResumeCycle();
-                if (!rRes.Success) ShowError(rRes.ErrorMessage!);
-                break;
-            case "2":
-                if (_machineService.Machine.State == MachineState.Paused)
-                {
-                    _machineService.PauseForAddingClothes();
-                }
-                var (count, confirmed) = Views.Screens.AddClothesView.ShowAdd(_machineService.Machine);
-                if (confirmed)
-                {
-                    var aRes = _machineService.AddClothes(count);
-                    if (!aRes.Success) ShowError(aRes.ErrorMessage!);
-                }
-                break;
-            case "3":
-                _machineService.CancelCycle();
-                return;
-            case "0":
-                _running = false;
-                return;
+            _dashboardView.DisplayError("No favourites saved yet.");
+            return;
         }
+
+        Guid id = _favouriteView.SelectFavourite(favourites);
+        await _favouriteService.DeleteAsync(id);
+        _logger.Log("Controller", "Deleted a favourite");
+        _dashboardView.DisplaySuccess(CommonMessages.FavouriteDeleted);
     }
 
-    private async Task HandleFavouritesAsync()
+    private void ShowProgress()
     {
-        while (true)
+        WashCycle? cycle = _machineService.Machine.CurrentCycle;
+        if (cycle == null)
         {
-            var favourites = await _favouriteService.GetAllAsync();
-            var (action, selectedId) = Views.Screens.FavouritesView.Show(favourites);
-
-            switch (action)
-            {
-                case Views.Screens.FavouritesView.FavouriteAction.UseFavourite:
-                    var fav = await _favouriteService.GetByIdAsync(selectedId);
-                    if (fav != null)
-                    {
-                        var result = _machineService.ApplyFavourite(fav);
-                        if (!result.Success) ShowError(result.ErrorMessage!);
-                    }
-                    return;
-
-                case Views.Screens.FavouritesView.FavouriteAction.AddFavourite:
-                    var name = Views.Screens.FavouritesView.PromptFavouriteName();
-                    if (!string.IsNullOrWhiteSpace(name))
-                    {
-                        var addResult = await _favouriteService.AddAsync(name, _machineService.Machine.Settings);
-                        if (!addResult.Success) ShowError(addResult.ErrorMessage!);
-                    }
-                    break;
-
-                case Views.Screens.FavouritesView.FavouriteAction.DeleteFavourite:
-                    var delResult = await _favouriteService.DeleteAsync(selectedId);
-                    if (!delResult.Success) ShowError(delResult.ErrorMessage!);
-                    break;
-
-                case Views.Screens.FavouritesView.FavouriteAction.Back:
-                default:
-                    return;
-            }
+            _dashboardView.DisplayMessage("No active washing cycle.");
+            return;
         }
-    }
 
-    private async Task HandleHistoryAsync()
-    {
-        var request = Views.Screens.HistoryView.ShowMenu();
-        if (request == null) return;
-
-        var records = (request.Filter, request.Sort) switch
+        _washingView.DisplayProgress(new WashProgressEventArgs
         {
-            (Views.Screens.HistoryView.HistoryFilter.Recent,    _) => await _historyService.GetRecentAsync(10),
-            (Views.Screens.HistoryView.HistoryFilter.Completed, _) => await _historyService.GetByStatusAsync(CycleStatus.Completed),
-            (Views.Screens.HistoryView.HistoryFilter.Cancelled, _) => await _historyService.GetByStatusAsync(CycleStatus.Cancelled),
-            (Views.Screens.HistoryView.HistoryFilter.ByProgram, _) when request.ProgramName != null => await _historyService.GetByProgramAsync(request.ProgramName),
-            _ => request.Sort switch
-            {
-                Views.Screens.HistoryView.HistorySort.DateAsc      => await _historyService.GetSortedByDateAsync(false),
-                Views.Screens.HistoryView.HistorySort.DurationDesc => await _historyService.GetSortedByDurationAsync(true),
-                Views.Screens.HistoryView.HistorySort.DurationAsc  => await _historyService.GetSortedByDurationAsync(false),
-                _                                                  => await _historyService.GetSortedByDateAsync(true)
-            }
-        };
+            Stage              = cycle.Stage,
+            ProgressPercentage = cycle.ProgressPercentage,
+            RemainingSeconds   = cycle.RemainingSeconds,
+        });
 
-        Views.Screens.HistoryView.ShowTable(records);
-    }
-
-    private void ShowError(string msg)
-    {
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"\nError: {msg}");
-        Console.ResetColor();
-        Console.WriteLine("Press Enter to continue...");
+        Console.WriteLine("Press Enter to go back...");
         Console.ReadLine();
+    }
+
+    private void HandlePause()
+    {
+        try
+        {
+            _machineService.PauseCycle();
+            _logger.Log("Controller", "Cycle paused, showing pause menu");
+
+            PauseMenuOption option = _pauseView.Show();
+            switch (option)
+            {
+                case PauseMenuOption.Resume:
+                    _machineService.ResumeCycle();
+                    _dashboardView.DisplayMessage("Cycle resumed.");
+                    break;
+
+                case PauseMenuOption.Cancel:
+                    _machineService.CancelCycle();
+                    _dashboardView.DisplayMessage("Cycle cancelled.");
+                    break;
+
+                default:
+                    // User hit back — resume automatically
+                    _machineService.ResumeCycle();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("HandlePause", ex.Message);
+            _dashboardView.DisplayError(ex.Message);
+        }
+    }
+
+    private async Task ExitAsync()
+    {
+        _logger.Log("Controller", "Saving machine state before exit");
+        await _machineStateRepository.SaveAsync(_machineService.Machine);
+        _isRunning = false;
+    }
+
+    // ── Event handlers ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Called every second while washing. Just stores progress — doesn't touch Console.
+    /// User sees it on demand via option 7.
+    /// </summary>
+    private void OnProgressChanged(object? sender, WashProgressEventArgs e)
+    {
+        // Progress is already stored in Machine.CurrentCycle — nothing to do here.
+        // We deliberately do NOT clear/redraw the console here because that would
+        // interrupt whatever the user is currently doing on the main menu.
+        _logger.Log("Progress", $"Stage={e.Stage}, {e.ProgressPercentage:F1}%, {e.RemainingSeconds}s left");
+    }
+
+    private void OnCycleCompleted(object? sender, EventArgs e)
+    {
+        _logger.Log("Cycle", "Completed event received");
+        // Write directly to console (won't interrupt a ReadLine prompt awkwardly,
+        // it just appears above the next menu render)
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("\n[WashMate] Washing cycle completed!");
+        Console.ResetColor();
+    }
+
+    private void OnCycleCancelled(object? sender, EventArgs e)
+    {
+        _logger.Log("Cycle", "Cancelled event received");
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("\n[WashMate] Washing cycle was cancelled.");
+        Console.ResetColor();
     }
 }

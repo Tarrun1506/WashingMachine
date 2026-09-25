@@ -1,4 +1,4 @@
-﻿namespace WashingMachine.Controllers;
+namespace WashingMachine.Controllers;
 
 /// <summary>
 /// Defines washing machine controller operations.
@@ -9,5 +9,5 @@ public interface IWashingMachineController
     /// Starts the application.
     /// </summary>
     /// <returns>A task representing the operation.</returns>
-    Task StartAsync();
+    void Start();
 }

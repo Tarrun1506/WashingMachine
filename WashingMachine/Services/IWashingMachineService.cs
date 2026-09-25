@@ -13,6 +13,7 @@ public interface IWashingMachineService
     event EventHandler<WashProgressEventArgs>? ProgressChanged;
     event EventHandler? CycleCompleted;
     event EventHandler? CycleCancelled;
+    event EventHandler? ClothesUnloadRequired;
 
     void AddClothes(int count);
     void RemoveClothes(int count);

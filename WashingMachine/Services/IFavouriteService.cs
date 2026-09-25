@@ -1,17 +1,13 @@
-﻿using WashingMachine.Models;
+using WashingMachine.Models;
 
 namespace WashingMachine.Services;
 
-/// <summary>
-/// Provides favourite operations.
-/// </summary>
 public interface IFavouriteService
 {
-    Task<List<Favourite>> GetAllAsync();
-
-    Task AddAsync(Favourite favourite);
-
-    Task DeleteAsync(Guid id);
-
-    Task<Favourite?> GetByIdAsync(Guid id);
+    List<Favourite> GetAll();
+    Favourite? GetById(Guid id);
+    void Add(Favourite favourite);
+    void Delete(Guid id);
+    void Initialize();
+    void SaveChanges();
 }

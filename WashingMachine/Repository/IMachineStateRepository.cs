@@ -1,4 +1,4 @@
-﻿using WashingMachine.Models;
+using WashingMachine.Models;
 
 namespace WashingMachine.Repository;
 
@@ -8,15 +8,22 @@ namespace WashingMachine.Repository;
 public interface IMachineStateRepository
 {
     /// <summary>
-    /// Saves machine state.
+    /// Saves machine state asynchronously (used during normal operation).
     /// </summary>
-    /// <param name="machine">Machine state.</param>
-    /// <returns>A task representing the operation.</returns>
     Task SaveAsync(WashingMachineModel machine);
 
     /// <summary>
-    /// Loads machine state.
+    /// Saves machine state synchronously — safe to call during process shutdown.
     /// </summary>
-    /// <returns>Saved machine state.</returns>
+    void Save(WashingMachineModel machine);
+
+    /// <summary>
+    /// Loads machine state asynchronously.
+    /// </summary>
     Task<WashingMachineModel?> LoadAsync();
+
+    /// <summary>
+    /// Loads machine state synchronously — used at startup.
+    /// </summary>
+    WashingMachineModel? Load();
 }

@@ -10,7 +10,6 @@ public class HistoryView
     public void DisplayHistory(List<WashHistory> history)
     {
         Console.Clear();
-
         Console.WriteLine("--- Wash History ---");
         Console.WriteLine();
         foreach (WashHistory item in history)

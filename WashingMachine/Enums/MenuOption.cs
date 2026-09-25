@@ -7,6 +7,5 @@
     RemoveClothes = 4,
     ManageFavourites = 5,
     ViewHistory = 6,
-    ViewProgress = 7,
-    PauseCycle = 8,
+    PauseCycle = 7,
 }

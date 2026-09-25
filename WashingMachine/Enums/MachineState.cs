@@ -9,6 +9,4 @@ public enum MachineState
     Ready,
     Running,
     Paused,
-    Completed,
-    Cancelled,
 }

@@ -1,0 +1,15 @@
+{
+  "State": 0,
+  "ClothesCount": 0,
+  "IsDoorLocked": false,
+  "Settings": {
+    "ProgramName": "Cotton",
+    "Temperature": 1,
+    "SpinSpeed": 1000,
+    "WaterLevel": 1,
+    "IsPreWashEnabled": false,
+    "IsExtraRinseEnabled": false,
+    "IsQuickWashEnabled": false
+  },
+  "CurrentCycle": null
+}

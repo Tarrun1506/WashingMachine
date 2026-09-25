@@ -1,56 +1,50 @@
-﻿using WashingMachine.Constants;
+using WashingMachine.Constants;
 using WashingMachine.Models;
 using WashingMachine.Storage;
 
 namespace WashingMachine.Repository;
 
-/// <summary>
-/// Provides favourite repository operations.
-/// </summary>
 public class FavouriteRepository : IFavouriteRepository
 {
     private readonly IStorage _storage;
+    private List<Favourite> _favourites = new();
+    private readonly string _filePath = Configurables.FavouriteFilePath;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="FavouriteRepository"/> class.
-    /// </summary>
-    /// <param name="storage">Storage implementation.</param>
     public FavouriteRepository(IStorage storage)
     {
-        this._storage = storage;
+        _storage = storage;
     }
 
-    /// <inheritdoc/>
-    public async Task<List<Favourite>> GetAllAsync()
+    public async Task LoadDataAsync()
     {
-        return await this._storage.LoadAsync<Favourite>(Configurables.FavouriteFilePath);
+        _favourites = await _storage.LoadAsync<Favourite>(_filePath);
     }
 
-    /// <inheritdoc/>
-    public async Task<Favourite?> GetByIdAsync(Guid id)
+    public async Task SaveDataAsync()
     {
-        List<Favourite> favourites = await this.GetAllAsync();
-        return favourites.FirstOrDefault(favourite => favourite.Id == id);
+        await _storage.SaveAsync(_filePath, _favourites);
     }
 
-    /// <inheritdoc/>
-    public async Task AddAsync(Favourite favourite)
+    public void SaveData()
     {
-        List<Favourite> favourites = await this.GetAllAsync();
-        favourites.Add(favourite);
-        await this._storage.SaveAsync(Configurables.FavouriteFilePath, favourites);
+        _storage.Save(_filePath, _favourites);
     }
 
-    /// <inheritdoc/>
-    public async Task DeleteAsync(Guid id)
+    public List<Favourite> GetAll() => _favourites.ToList();
+
+    public Favourite? GetById(Guid id) => _favourites.FirstOrDefault(f => f.Id == id);
+
+    public void Add(Favourite favorite)
     {
-        List<Favourite> favourites = await this.GetAllAsync();
-        Favourite? favourite = favourites.FirstOrDefault(item => item.Id == id);
-        if (favourite != null)
+        _favourites.Add(favorite);
+    }
+
+    public void Delete(Guid id)
+    {
+        var item = _favourites.FirstOrDefault(f => f.Id == id);
+        if (item != null)
         {
-            favourites.Remove(favourite);
+            _favourites.Remove(item);
         }
-
-        await this._storage.SaveAsync(Configurables.FavouriteFilePath, favourites);
     }
 }

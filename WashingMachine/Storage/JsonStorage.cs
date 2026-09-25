@@ -78,6 +78,21 @@ public class JsonStorage : IStorage
     }
 
     /// <inheritdoc/>
+    public void Save<T>(string filePath, List<T> data)
+    {
+        try
+        {
+            EnsureDirectory(filePath);
+            string json = JsonSerializer.Serialize(data, JsonOptions);
+            File.WriteAllText(filePath, json);
+        }
+        catch (Exception exception)
+        {
+            throw new StorageException(ErrorMessages.WriteFailed, exception);
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task<T?> LoadSingleAsync<T>(string filePath)
     {
         if (!File.Exists(filePath))
@@ -139,5 +154,26 @@ public class JsonStorage : IStorage
         {
             throw new StorageException(ErrorMessages.InvalidFilePath, exception);
         }
+    }
+    /// <inheritdoc/>
+    public void SaveSingle<T>(string filePath, T data)
+    {
+        try
+        {
+            EnsureDirectory(filePath);
+            string json = JsonSerializer.Serialize(data, JsonOptions);
+            File.WriteAllText(filePath, json);
+        }
+        catch (Exception exception)
+        {
+            throw new StorageException(ErrorMessages.WriteFailed, exception);
+        }
+    }
+
+    private static void EnsureDirectory(string filePath)
+    {
+        string? directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
     }
 }

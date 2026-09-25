@@ -15,10 +15,17 @@ internal class Program
     /// <summary>
     /// Starts the application.
     /// </summary>
-    public static async Task Main(string[] args)
+    public static void Main(string[] args)
     {
-        Console.Title = "WashMate - Smart Washing Machine";
-        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        try
+        {
+            Console.Title = "WashMate - Smart Washing Machine";
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+        }
+        catch
+        {
+            // Ignore console handle errors
+        }
 
         Logger logger = new();
         logger.Log("App", "======= Application Started =======");
@@ -42,7 +49,7 @@ internal class Program
                 machineStateRepository,
                 logger);
 
-            await controller.StartAsync();
+            controller.Start();
         }
         catch (StorageException ex)
         {

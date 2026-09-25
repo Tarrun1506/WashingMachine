@@ -1,36 +1,39 @@
-﻿using WashingMachine.Constants;
+using WashingMachine.Constants;
 using WashingMachine.Models;
 using WashingMachine.Storage;
 
 namespace WashingMachine.Repository;
 
-/// <summary>
-/// Provides wash history repository operations.
-/// </summary>
 public class WashHistoryRepository : IWashHistoryRepository
 {
     private readonly IStorage _storage;
+    private List<WashHistory> _history = new();
+    private readonly string _filePath = Configurables.WashHistoryFilePath;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="WashHistoryRepository"/> class.
-    /// </summary>
-    /// <param name="storage">Storage implementation.</param>
     public WashHistoryRepository(IStorage storage)
     {
-        this._storage = storage;
+        _storage = storage;
     }
 
-    /// <inheritdoc/>
-    public async Task<List<WashHistory>> GetAllAsync()
+    public async Task LoadDataAsync()
     {
-        return await this._storage.LoadAsync<WashHistory>(Configurables.WashHistoryFilePath);
+        _history = await _storage.LoadAsync<WashHistory>(_filePath);
     }
 
-    /// <inheritdoc/>
-    public async Task AddAsync(WashHistory history)
+    public async Task SaveDataAsync()
     {
-        List<WashHistory> historyRecords = await this.GetAllAsync();
-        historyRecords.Add(history);
-        await this._storage.SaveAsync(Configurables.WashHistoryFilePath, historyRecords);
+        await _storage.SaveAsync(_filePath, _history);
+    }
+
+    public void SaveData()
+    {
+        _storage.Save(_filePath, _history);
+    }
+
+    public List<WashHistory> GetAll() => _history.ToList();
+
+    public void Add(WashHistory history)
+    {
+        _history.Add(history);
     }
 }

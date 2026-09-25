@@ -11,7 +11,6 @@ public class FavouriteView
     public FavouriteMenuOption ShowMenu()
     {
         Console.Clear();
-
         Console.WriteLine("--- Favourite Menu ---");
         Console.WriteLine("1. Apply Favourite");
         Console.WriteLine("2. Save Current Settings");
@@ -25,7 +24,6 @@ public class FavouriteView
     public Guid SelectFavourite(List<Favourite> favourites)
     {
         Console.Clear();
-
         Console.WriteLine("--- Favourites ---");
         Console.WriteLine();
         for (int index = 0; index < favourites.Count; index++)

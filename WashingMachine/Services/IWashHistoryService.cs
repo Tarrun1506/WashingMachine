@@ -1,13 +1,11 @@
-﻿using WashingMachine.Models;
+using WashingMachine.Models;
 
 namespace WashingMachine.Services;
 
-/// <summary>
-/// Provides wash history operations.
-/// </summary>
 public interface IWashHistoryService
 {
-    Task<List<WashHistory>> GetAllAsync();
-
-    Task AddAsync(WashHistory history);
+    List<WashHistory> GetAll();
+    void Add(WashHistory history);
+    void Initialize();
+    void SaveChanges();
 }

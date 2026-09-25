@@ -6,36 +6,32 @@ namespace WashingMachine.Storage;
 public interface IStorage
 {
     /// <summary>
-    /// Loads data from storage.
+    /// Loads a list of objects from storage asynchronously.
     /// </summary>
-    /// <typeparam name="T">Type of data.</typeparam>
-    /// <param name="filePath">File path.</param>
-    /// <returns>Loaded data.</returns>
     Task<List<T>> LoadAsync<T>(string filePath);
 
     /// <summary>
-    /// Saves data to storage.
+    /// Saves a list of objects to storage asynchronously.
     /// </summary>
-    /// <typeparam name="T">Type of data.</typeparam>
-    /// <param name="filePath">File path.</param>
-    /// <param name="data">Data to save.</param>
-    /// <returns>A task representing the operation.</returns>
     Task SaveAsync<T>(string filePath, List<T> data);
 
     /// <summary>
-    /// Loads a single object from storage.
+    /// Saves a list of objects to storage synchronously — safe to call during shutdown.
     /// </summary>
-    /// <typeparam name="T">Type of data.</typeparam>
-    /// <param name="filePath">File path.</param>
-    /// <returns>Loaded object.</returns>
+    void Save<T>(string filePath, List<T> data);
+
+    /// <summary>
+    /// Loads a single object from storage asynchronously.
+    /// </summary>
     Task<T?> LoadSingleAsync<T>(string filePath);
 
     /// <summary>
-    /// Saves a single object to storage.
+    /// Saves a single object to storage asynchronously.
     /// </summary>
-    /// <typeparam name="T">Type of data.</typeparam>
-    /// <param name="filePath">File path.</param>
-    /// <param name="data">Data to save.</param>
-    /// <returns>A task representing the operation.</returns>
     Task SaveSingleAsync<T>(string filePath, T data);
+
+    /// <summary>
+    /// Saves a single object to storage synchronously — safe to call during shutdown.
+    /// </summary>
+    void SaveSingle<T>(string filePath, T data);
 }

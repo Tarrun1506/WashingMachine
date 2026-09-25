@@ -40,12 +40,7 @@ public static class MenuMessages
     /// </summary>
     public const string History = "6. View History";
 
-    /// <summary>
-    /// Progress menu option.
-    /// </summary>
-    public const string Progress = "7. View Progress";
-
-    public const string PauseCycle = "8. Pause Cycle";
+    public const string PauseCycle = "7. Pause Cycle";
 
     /// <summary>
     /// Exit menu option.

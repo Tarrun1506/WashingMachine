@@ -3,8 +3,8 @@ using WashingMachine.Constants;
 namespace WashingMachine.Helpers;
 
 /// <summary>
-/// Simple file-based logger. Appends log entries to a text file.
-/// File I/O uses async; everything else is plain synchronous code.
+/// Simple file-based logger. Appends log entries to a text file asynchronously.
+/// The calling code stays fully synchronous — file writes are fire-and-forget.
 /// </summary>
 public class Logger
 {
@@ -21,22 +21,21 @@ public class Logger
         }
     }
 
+    /// <summary>
+    /// Logs an informational entry to the log file only (not to the console).
+    /// </summary>
     public void Log(string operation, string details = "")
     {
         string entry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{operation}] {details}";
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine(entry);
-        Console.ResetColor();
-        // Fire-and-forget the async file write so calling code stays sync
         _ = WriteToFileAsync(entry);
     }
 
+    /// <summary>
+    /// Logs an error entry to the log file only (not to the console).
+    /// </summary>
     public void LogError(string operation, string error)
     {
         string entry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [ERROR:{operation}] {error}";
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine(entry);
-        Console.ResetColor();
         _ = WriteToFileAsync(entry);
     }
 

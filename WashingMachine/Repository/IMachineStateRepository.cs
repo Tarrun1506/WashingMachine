@@ -16,7 +16,6 @@ public interface IMachineStateRepository
     /// Saves machine state synchronously — safe to call during process shutdown.
     /// </summary>
     void Save(WashingMachineModel machine);
-
     /// <summary>
     /// Loads machine state asynchronously.
     /// </summary>

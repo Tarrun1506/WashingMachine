@@ -17,15 +17,9 @@ internal class Program
     /// </summary>
     public static void Main(string[] args)
     {
-        try
-        {
-            Console.Title = "WashMate - Smart Washing Machine";
-            Console.OutputEncoding = System.Text.Encoding.UTF8;
-        }
-        catch
-        {
-            // Ignore console handle errors
-        }
+        Console.Title = "WashMate - Smart Washing Machine";
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        Console.InputEncoding = System.Text.Encoding.UTF8;
 
         Logger logger = new();
         logger.Log("App", "======= Application Started =======");

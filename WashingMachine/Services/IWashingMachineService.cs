@@ -11,9 +11,8 @@ public interface IWashingMachineService
     WashingMachineModel Machine { get; }
 
     event EventHandler<WashProgressEventArgs>? ProgressChanged;
-    event EventHandler? CycleCompleted;
     event EventHandler? CycleCancelled;
-    event EventHandler? ClothesUnloadRequired;
+    event EventHandler? CycleCompleted;
 
     void AddClothes(int count);
     void RemoveClothes(int count);

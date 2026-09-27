@@ -9,5 +9,6 @@ public enum CycleStage
     Washing,
     Rinsing,
     Spinning,
+    Unloading,
     Completed,
 }

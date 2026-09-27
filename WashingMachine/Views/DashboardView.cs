@@ -9,148 +9,131 @@ namespace WashingMachine.Views;
 /// </summary>
 public class DashboardView
 {
+    private DashboardRenderer? _renderer;
 
     public MenuOption Show(WashingMachineModel machine)
     {
-        // Use simple split-screen approach without complex cursor operations
-        Console.Clear();
+        if (_renderer == null)
+        {
+            _renderer = new DashboardRenderer(machine);
+            Console.Clear();
+            _renderer.RenderDashboard();
+        }
+        else
+        {
+            _renderer.UpdateMachine(machine);
+            _renderer.RenderDashboard();
+        }
 
-        // Display dashboard at top
-        DisplayHeader(machine);
-        DisplayProgressSection(machine);
-        Console.WriteLine();
-
-        // Display menu below
+        // Move to content area and show menu
+        _renderer.MoveToContentArea();
         DisplayMenu();
-        Console.Write("Enter Choice : ");
-        int.TryParse(Console.ReadLine(), out int choice);
+        int choice = ConsoleInput.ReadIntInRange("Enter Choice : ", 0, 7, ErrorMessages.InvalidMenuChoice);
         return (MenuOption)choice;
-    }
-
-    private void DisplayHeader(WashingMachineModel machine)
-    {
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
-        Console.WriteLine("║" + CenterText("WASHMATE - SMART WASHING MACHINE", 56) + "║");
-        Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
-        Console.ResetColor();
-    }
-
-    private void DisplayProgressSection(WashingMachineModel machine)
-    {
-        // Status indicator
-        Console.Write("Status: ");
-        ConsoleColor statusColor = machine.State switch
-        {
-            MachineState.Running => ConsoleColor.Green,
-            MachineState.Paused => ConsoleColor.Yellow,
-            MachineState.Idle => ConsoleColor.Gray,
-            MachineState.Ready => ConsoleColor.Blue,
-            _ => ConsoleColor.White
-        };
-        Console.ForegroundColor = statusColor;
-        string statusText = machine.State.ToString().ToUpper();
-        Console.Write($"[{statusText}]");
-        Console.ResetColor();
-        Console.WriteLine();
-
-        // Machine info
-        Console.WriteLine($"┌─ Clothes: {machine.ClothesCount}/{WashingMachineModel.MaximumCapacity}");
-        Console.WriteLine($"├─ Program: {machine.Settings.ProgramName}");
-        Console.WriteLine($"└─ Door: {(machine.IsDoorLocked ? "LOCKED" : "UNLOCKED")}");
-
-        // Real-time progress if running
-        if (machine.State == MachineState.Running && machine.CurrentCycle != null)
-        {
-            DisplayProgressBar(machine.CurrentCycle);
-        }
-        else if (machine.State == MachineState.Paused && machine.CurrentCycle != null)
-        {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("⏸ Cycle PAUSED");
-            Console.ResetColor();
-            DisplayProgressBar(machine.CurrentCycle);
-        }
-    }
-
-    private void DisplayProgressBar(WashCycle cycle)
-    {
-        int barWidth = 40;
-        int filled = (int)(cycle.ProgressPercentage / 100 * barWidth);
-        int empty = barWidth - filled;
-
-        Console.Write("Stage: ");
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine(cycle.Stage.ToString());
-        Console.ResetColor();
-
-        Console.Write("[");
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.Write(new string('█', filled));
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.Write(new string('░', empty));
-        Console.ResetColor();
-        Console.Write($"] {cycle.ProgressPercentage:F1}%");
-        Console.WriteLine();
-
-        Console.Write("Time: ");
-        int minutes = cycle.RemainingSeconds / 60;
-        int seconds = cycle.RemainingSeconds % 60;
-        Console.ForegroundColor = ConsoleColor.White;
-        Console.WriteLine($"{minutes:D2}:{seconds:D2} remaining");
-        Console.ResetColor();
     }
 
     public void DisplayOnly(WashingMachineModel machine)
     {
-        Console.Clear();
+        if (_renderer == null)
+        {
+            _renderer = new DashboardRenderer(machine);
+            Console.Clear();
+            _renderer.RenderDashboard();
+        }
+        else
+        {
+            _renderer.UpdateMachine(machine);
+            _renderer.RenderDashboard();
+        }
 
-        // Display dashboard at top
-        DisplayHeader(machine);
-        DisplayProgressSection(machine);
-        Console.WriteLine();
-
-        // Display menu below
+        // Move to content area and show menu
+        _renderer.MoveToContentArea();
         DisplayMenu();
         Console.WriteLine("Press any key to access menu...");
     }
 
     /// <summary>
     /// Updates only the dashboard section without clearing the content area.
-    /// Note: This simple implementation clears the whole screen due to console limitations.
     /// </summary>
     public void UpdateDashboard(WashingMachineModel machine)
     {
-        Console.Clear();
-        DisplayHeader(machine);
-        DisplayProgressSection(machine);
-        Console.WriteLine();
+        if (_renderer == null)
+        {
+            _renderer = new DashboardRenderer(machine);
+            Console.Clear();
+            _renderer.RenderDashboard();
+        }
+        else
+        {
+            _renderer.UpdateMachine(machine);
+            _renderer.RenderDashboard();
+        }
+    }
+
+    /// <summary>
+    /// Ensures the dashboard renderer is initialized.
+    /// </summary>
+    public void EnsureRendererInitialized(WashingMachineModel machine)
+    {
+        if (_renderer == null)
+        {
+            _renderer = new DashboardRenderer(machine);
+            Console.Clear();
+            _renderer.RenderDashboard();
+        }
+    }
+
+    /// <summary>
+    /// Gets the dashboard renderer for use by other views.
+    /// </summary>
+    public DashboardRenderer? GetRenderer()
+    {
+        return _renderer;
+    }
+
+    /// <summary>
+    /// Clears the content area (below the dashboard).
+    /// </summary>
+    public void ClearContentArea()
+    {
+        _renderer?.ClearContentArea();
+    }
+
+    /// <summary>
+    /// Moves cursor to the start of the content area.
+    /// </summary>
+    public void MoveToContentArea()
+    {
+        _renderer?.MoveToContentArea();
     }
 
     private void DisplayMenu()
     {
-        Console.WriteLine("┌─────────────────────────────────────────────────────────┐");
-        Console.WriteLine("│ " + PadRight("1. Start Washing", 54) + "│");
-        Console.WriteLine("│ " + PadRight("2. Configure Settings", 54) + "│");
-        Console.WriteLine("│ " + PadRight("3. Add Clothes", 54) + "│");
-        Console.WriteLine("│ " + PadRight("4. Remove Clothes", 54) + "│");
-        Console.WriteLine("│ " + PadRight("5. Favourites", 54) + "│");
-        Console.WriteLine("│ " + PadRight("6. View History", 54) + "│");
-        Console.WriteLine("│ " + PadRight("7. Pause Cycle", 54) + "│");
-        Console.WriteLine("│ " + PadRight("0. Exit", 54) + "│");
-        Console.WriteLine("└─────────────────────────────────────────────────────────┘");
+        Console.WriteLine("+----------------------------------------------------------+");
+        Console.WriteLine("| 1. Start Washing                                         |");
+        Console.WriteLine("| 2. Configure Settings                                    |");
+        Console.WriteLine("| 3. Add Clothes                                           |");
+        Console.WriteLine("| 4. Remove Clothes                                        |");
+        Console.WriteLine("| 5. Favourites                                            |");
+        Console.WriteLine("| 6. View History                                          |");
+        Console.WriteLine("| 7. Pause Cycle                                           |");
+        Console.WriteLine("| 0. Exit                                                  |");
+        Console.WriteLine("+----------------------------------------------------------+");
     }
 
-    public int ReadClothesCount()
+    public int ReadClothesCount(int min, int max)
     {
-        Console.Write("Enter Clothes Count : ");
-        int.TryParse(Console.ReadLine(), out int count);
-        return count;
+        return ConsoleInput.ReadIntInRange(
+            "Enter Clothes Count : ",
+            min,
+            max,
+            $"Please enter a number between {min} and {max}.");
     }
 
     public void DisplayMessage(string message)
     {
-        Console.Clear();
+        ClearContentArea();
+        MoveToContentArea();
         Console.WriteLine(message);
         Console.WriteLine("\nPress Enter To Continue...");
         Console.ReadLine();
@@ -158,7 +141,8 @@ public class DashboardView
 
     public void DisplayError(string message)
     {
-        Console.Clear();
+        ClearContentArea();
+        MoveToContentArea();
         Console.ForegroundColor = ConsoleColor.Red;
         Console.WriteLine(message);
         Console.ResetColor();
@@ -168,12 +152,74 @@ public class DashboardView
 
     public void DisplaySuccess(string message)
     {
-        Console.Clear();
+        ClearContentArea();
+        MoveToContentArea();
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine(message);
         Console.ResetColor();
         Console.WriteLine("\nPress Enter To Continue...");
         Console.ReadLine();
+    }
+
+    public void DisplayMessageWithRedraw(WashingMachineModel machine, string message)
+    {
+        ClearContentArea();
+        MoveToContentArea();
+        Console.WriteLine(message);
+        Console.WriteLine("\nPress Enter To Continue...");
+        Console.ReadLine();
+        ForceFullRedraw(machine);
+    }
+
+    public void DisplayErrorWithRedraw(WashingMachineModel machine, string message)
+    {
+        ClearContentArea();
+        MoveToContentArea();
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine(message);
+        Console.ResetColor();
+        Console.WriteLine("\nPress Enter To Continue...");
+        Console.ReadLine();
+        ForceFullRedraw(machine);
+    }
+
+    public void DisplaySuccessWithRedraw(WashingMachineModel machine, string message)
+    {
+        ClearContentArea();
+        MoveToContentArea();
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine(message);
+        Console.ResetColor();
+        Console.WriteLine("\nPress Enter To Continue...");
+        Console.ReadLine();
+        ForceFullRedraw(machine);
+    }
+
+    /// <summary>
+    /// Shows the main menu with dashboard at top.
+    /// </summary>
+    public void ShowMenuWithDashboard(WashingMachineModel machine)
+    {
+        UpdateDashboard(machine);
+        MoveToContentArea();
+        DisplayMenu();
+    }
+
+    /// <summary>
+    /// Forces a full screen redraw (clears everything and redraws dashboard).
+    /// </summary>
+    public void ForceFullRedraw(WashingMachineModel machine)
+    {
+        if (_renderer == null)
+        {
+            _renderer = new DashboardRenderer(machine);
+        }
+        else
+        {
+            _renderer.UpdateMachine(machine);
+        }
+
+        _renderer.ForceFullRedraw();
     }
 
     private string CenterText(string text, int width)

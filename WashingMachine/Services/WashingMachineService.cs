@@ -32,9 +32,8 @@ public class WashingMachineService : IWashingMachineService, IDisposable
     public WashingMachineModel Machine { get; } = new();
 
     public event EventHandler<WashProgressEventArgs>? ProgressChanged;
-    public event EventHandler? CycleCompleted;
     public event EventHandler? CycleCancelled;
-    public event EventHandler? ClothesUnloadRequired;
+    public event EventHandler? CycleCompleted;
 
     public WashingMachineService(IWashHistoryService historyService, Logger logger)
     {
@@ -44,19 +43,32 @@ public class WashingMachineService : IWashingMachineService, IDisposable
 
     public void AddClothes(int count)
     {
+        if (Machine.State == MachineState.Running)
+            throw new MachineOperationException(ErrorMessages.CannotAddWhileRunning);
+
         if (count <= 0)
             throw new MachineOperationException(ErrorMessages.InvalidClothesCount);
 
-        if (Machine.ClothesCount + count > Configurables.MaximumCapacity)
+        if (Machine.ClothesCount >= Configurables.MaximumCapacity)
+            throw new MachineOperationException(ErrorMessages.MachineFull);
+
+        if (count > Configurables.MaximumCapacity || Machine.ClothesCount + count > Configurables.MaximumCapacity)
             throw new MachineOperationException(ErrorMessages.CapacityExceeded);
 
         Machine.ClothesCount += count;
-        Machine.State = MachineState.Ready;
+        if (Machine.State == MachineState.Idle)
+            Machine.State = MachineState.Ready;
         _logger.Log("AddClothes", $"Added {count} clothes. Total: {Machine.ClothesCount}");
     }
 
     public void RemoveClothes(int count)
     {
+        if (Machine.State == MachineState.Running)
+            throw new MachineOperationException(ErrorMessages.CannotRemoveWhileRunning);
+
+        if (Machine.ClothesCount == 0)
+            throw new MachineOperationException(ErrorMessages.NoClothesToRemove);
+
         if (count <= 0)
             throw new MachineOperationException(ErrorMessages.InvalidClothesCount);
 
@@ -72,32 +84,47 @@ public class WashingMachineService : IWashingMachineService, IDisposable
 
     public void ApplySettings(WashSettings settings)
     {
+        if (Machine.State == MachineState.Running)
+            throw new MachineOperationException(ErrorMessages.CannotModifyWhileRunning);
+
+        if (!SettingsValidator.TryValidateSettings(settings, out string error))
+            throw new MachineOperationException(error);
+
         Machine.Settings = settings;
         _logger.Log("ApplySettings", $"Program={settings.ProgramName}, Temp={settings.Temperature}, Spin={settings.SpinSpeed}");
     }
 
     public void ApplyFavourite(Favourite favourite)
     {
-        Machine.Settings = new WashSettings
+        if (favourite == null)
+            throw new MachineOperationException(ErrorMessages.FavouriteNotFound);
+
+        ApplySettings(new WashSettings
         {
-            ProgramName        = favourite.ProgramName,
-            Temperature        = favourite.Temperature,
-            SpinSpeed          = favourite.SpinSpeed,
-            WaterLevel         = favourite.WaterLevel,
-            IsPreWashEnabled   = favourite.IsPreWashEnabled,
+            ProgramName         = favourite.ProgramName,
+            Temperature         = favourite.Temperature,
+            SpinSpeed           = favourite.SpinSpeed,
+            WaterLevel          = favourite.WaterLevel,
+            IsPreWashEnabled    = favourite.IsPreWashEnabled,
             IsExtraRinseEnabled = favourite.IsExtraRinseEnabled,
-            IsQuickWashEnabled = favourite.IsQuickWashEnabled,
-        };
+            IsQuickWashEnabled  = favourite.IsQuickWashEnabled,
+        });
         _logger.Log("ApplyFavourite", $"Applied '{favourite.Name}'");
     }
 
     public void StartCycle()
     {
         if (Machine.ClothesCount == 0)
-            throw new MachineOperationException("Please add clothes before starting the cycle.");
+            throw new MachineOperationException(ErrorMessages.ClothesRequiredToStart);
 
         if (Machine.State == MachineState.Running)
             throw new MachineOperationException(ErrorMessages.CycleAlreadyRunning);
+
+        if (Machine.State == MachineState.Paused)
+            throw new MachineOperationException(ErrorMessages.CycleIsPaused);
+
+        if (!SettingsValidator.TryValidateSettings(Machine.Settings, out string settingsError))
+            throw new MachineOperationException(settingsError);
 
         if (_pauseGate.CurrentCount == 0)
             _pauseGate.Release();
@@ -121,7 +148,7 @@ public class WashingMachineService : IWashingMachineService, IDisposable
     public void PauseCycle()
     {
         if (Machine.State != MachineState.Running)
-            throw new MachineOperationException("Machine is not running.");
+            throw new MachineOperationException(ErrorMessages.CycleNotRunning);
 
         _pauseGate.Wait(0);
         Machine.State = MachineState.Paused;
@@ -131,7 +158,7 @@ public class WashingMachineService : IWashingMachineService, IDisposable
     public void ResumeCycle()
     {
         if (Machine.State != MachineState.Paused)
-            throw new MachineOperationException("Machine is not paused.");
+            throw new MachineOperationException(ErrorMessages.MachineNotPaused);
 
         Machine.State = MachineState.Running;
         _pauseGate.Release();
@@ -141,7 +168,7 @@ public class WashingMachineService : IWashingMachineService, IDisposable
     public void CancelCycle()
     {
         if (Machine.State != MachineState.Running && Machine.State != MachineState.Paused)
-            throw new MachineOperationException("No running cycle found.");
+            throw new MachineOperationException(ErrorMessages.CycleNotRunning);
 
         if (_pauseGate.CurrentCount == 0)
             _pauseGate.Release();
@@ -152,12 +179,22 @@ public class WashingMachineService : IWashingMachineService, IDisposable
 
     public void RestoreState(WashingMachineModel saved)
     {
-        Machine.State        = saved.State;
-        Machine.ClothesCount = saved.ClothesCount;
+        int clothes = Math.Clamp(saved.ClothesCount, 0, Configurables.MaximumCapacity);
+        Machine.ClothesCount = clothes;
         Machine.IsDoorLocked = saved.IsDoorLocked;
-        Machine.Settings     = saved.Settings;
         Machine.CurrentCycle = saved.CurrentCycle;
-        _logger.Log("RestoreState", $"State={saved.State}, Clothes={saved.ClothesCount}");
+
+        if (saved.Settings != null && SettingsValidator.TryValidateSettings(saved.Settings, out _))
+            Machine.Settings = saved.Settings;
+
+        MachineState state = saved.State;
+        if (state == MachineState.Running && saved.CurrentCycle == null)
+            state = MachineState.Idle;
+        if (clothes == 0 && state != MachineState.Running && state != MachineState.Paused)
+            state = MachineState.Idle;
+
+        Machine.State = state;
+        _logger.Log("RestoreState", $"State={Machine.State}, Clothes={Machine.ClothesCount}");
     }
 
     public void ResumeSavedCycle()
@@ -169,7 +206,7 @@ public class WashingMachineService : IWashingMachineService, IDisposable
             _pauseGate.Release();
 
         _cts = new CancellationTokenSource();
-        int remaining = Machine.CurrentCycle.RemainingSeconds;
+        int remaining = Math.Max(Machine.CurrentCycle.RemainingSeconds, 0);
         _logger.Log("ResumeSavedCycle", $"Resuming with {remaining}s remaining");
         Task.Run(() => RunCycleAsync(remaining, _cts.Token));
     }
@@ -221,19 +258,49 @@ public class WashingMachineService : IWashingMachineService, IDisposable
             }
             else
             {
-                _logger.Log("Cycle", "Completed successfully");
+                _logger.Log("Cycle", "Washing cycle completed, starting unloading");
+                
+                // Update to unloading stage
+                Machine.CurrentCycle!.Stage = CycleStage.Unloading;
+                Machine.CurrentCycle!.RemainingSeconds = 3; // 3 seconds for unloading
+                Machine.CurrentCycle!.ProgressPercentage = 100;
+                ProgressChanged?.Invoke(this, new WashProgressEventArgs
+                {
+                    Stage              = CycleStage.Unloading,
+                    ProgressPercentage = 100,
+                    RemainingSeconds   = 3,
+                });
+
+                // Run unloading countdown
+                for (int unloadSeconds = 3; unloadSeconds > 0; unloadSeconds--)
+                {
+                    if (token.IsCancellationRequested)
+                        break;
+
+                    await _pauseGate.WaitAsync(token);
+                    _pauseGate.Release();
+
+                    await timer.WaitForNextTickAsync(token);
+                    
+                    Machine.CurrentCycle!.RemainingSeconds = unloadSeconds - 1;
+                    ProgressChanged?.Invoke(this, new WashProgressEventArgs
+                    {
+                        Stage              = CycleStage.Unloading,
+                        ProgressPercentage = 100,
+                        RemainingSeconds   = unloadSeconds - 1,
+                    });
+                }
+
+                // Reset clothes count after unloading
+                Machine.ClothesCount = 0;
+                _logger.Log("Cycle", "Unloading completed, clothes reset to 0");
+                
                 RecordHistory(CycleStatus.Completed);
                 Machine.State        = MachineState.Idle;
                 Machine.IsDoorLocked = false;
                 Machine.CurrentCycle = null;
 
-                // Notify that clothes need to be unloaded (this will trigger the 3-second delay)
-                ClothesUnloadRequired?.Invoke(this, EventArgs.Empty);
-
-                // Reset clothes count after unloading
-                Machine.ClothesCount = 0;
-
-                // Then notify cycle completion
+                // Notify cycle completion
                 CycleCompleted?.Invoke(this, EventArgs.Empty);
             }
         }

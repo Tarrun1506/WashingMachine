@@ -8,10 +8,12 @@ namespace WashingMachine.Views;
 /// </summary>
 public class DashboardRenderer
 {
-    private const int DashboardHeight = 12; // Height of the dashboard section
+    private const int DashboardHeight = 10; // Height of the dashboard section
+    private WashingMachineModel _machine;
 
-    public DashboardRenderer()
+    public DashboardRenderer(WashingMachineModel machine)
     {
+        _machine = machine;
     }
 
     /// <summary>
@@ -20,9 +22,17 @@ public class DashboardRenderer
     public int ContentStartLine => DashboardHeight + 1;
 
     /// <summary>
-    /// Renders the dashboard at the top of the console.
+    /// Updates the machine reference for dashboard rendering.
     /// </summary>
-    public void RenderDashboard(WashingMachineModel machine)
+    public void UpdateMachine(WashingMachineModel machine)
+    {
+        _machine = machine;
+    }
+
+    /// <summary>
+    /// Renders the dashboard at the top of the console without clearing the entire screen.
+    /// </summary>
+    public void RenderDashboard()
     {
         try
         {
@@ -33,7 +43,7 @@ public class DashboardRenderer
             // Move to top of console
             Console.SetCursorPosition(0, 0);
 
-            // Clear only the dashboard area
+            // Clear only the dashboard area line by line with proper spacing
             for (int i = 0; i < DashboardHeight; i++)
             {
                 Console.SetCursorPosition(0, i);
@@ -43,15 +53,25 @@ public class DashboardRenderer
             // Render dashboard content
             Console.SetCursorPosition(0, 0);
             DisplayHeader();
-            DisplayProgressSection(machine);
+            DisplayProgressSection();
 
-            // Restore cursor position
-            Console.SetCursorPosition(originalLeft, originalTop);
+            // Restore cursor position to content area if we were there
+            if (originalTop >= ContentStartLine)
+            {
+                Console.SetCursorPosition(originalLeft, originalTop);
+            }
+            else
+            {
+                Console.SetCursorPosition(0, ContentStartLine);
+            }
         }
-        catch (Exception ex)
+        catch
         {
-            // Fallback to simple rendering if console operations fail
-            Console.WriteLine($"Dashboard render error: {ex.Message}");
+            // If console operations fail, fall back to simple rendering
+            Console.Clear();
+            DisplayHeader();
+            DisplayProgressSection();
+            Console.WriteLine();
         }
     }
 
@@ -71,11 +91,34 @@ public class DashboardRenderer
                 Console.Write(new string(' ', Console.WindowWidth));
             }
 
-            Console.SetCursorPosition(originalLeft, originalTop);
+            Console.SetCursorPosition(0, ContentStartLine);
         }
-        catch (Exception ex)
+        catch
         {
-            Console.WriteLine($"Clear content area error: {ex.Message}");
+            Console.Clear();
+            Console.SetCursorPosition(0, ContentStartLine);
+        }
+    }
+
+    /// <summary>
+    /// Forces a full screen redraw (clears everything and redraws dashboard).
+    /// </summary>
+    public void ForceFullRedraw()
+    {
+        try
+        {
+            Console.Clear();
+            Console.SetCursorPosition(0, 0);
+            DisplayHeader();
+            DisplayProgressSection();
+            Console.SetCursorPosition(0, ContentStartLine);
+        }
+        catch
+        {
+            Console.Clear();
+            DisplayHeader();
+            DisplayProgressSection();
+            Console.WriteLine();
         }
     }
 
@@ -88,41 +131,30 @@ public class DashboardRenderer
         {
             Console.SetCursorPosition(0, ContentStartLine);
         }
-        catch (Exception ex)
+        catch
         {
-            Console.WriteLine($"Move to content area error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Moves cursor to a specific position within the content area.
-    /// </summary>
-    public void MoveToContentPosition(int left, int relativeTop)
-    {
-        try
-        {
-            Console.SetCursorPosition(left, ContentStartLine + relativeTop);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Move to content position error: {ex.Message}");
+            // If cursor positioning fails, just write newlines
+            for (int i = 0; i < ContentStartLine; i++)
+            {
+                Console.WriteLine();
+            }
         }
     }
 
     private void DisplayHeader()
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
-        Console.WriteLine("║" + CenterText("WASHMATE - SMART WASHING MACHINE", 56) + "║");
-        Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
+        Console.WriteLine("+============================================================+");
+        Console.WriteLine("|             WASHMATE - SMART WASHING MACHINE                |");
+        Console.WriteLine("+============================================================+");
         Console.ResetColor();
     }
 
-    private void DisplayProgressSection(WashingMachineModel machine)
+    private void DisplayProgressSection()
     {
         // Status indicator
         Console.Write("Status: ");
-        ConsoleColor statusColor = machine.State switch
+        ConsoleColor statusColor = _machine.State switch
         {
             MachineState.Running => ConsoleColor.Green,
             MachineState.Paused => ConsoleColor.Yellow,
@@ -131,27 +163,34 @@ public class DashboardRenderer
             _ => ConsoleColor.White
         };
         Console.ForegroundColor = statusColor;
-        string statusText = machine.State.ToString().ToUpper();
+        string statusText = _machine.State.ToString().ToUpper();
         Console.Write($"[{statusText}]");
         Console.ResetColor();
         Console.WriteLine();
 
         // Machine info
-        Console.WriteLine($"┌─ Clothes: {machine.ClothesCount}/{WashingMachineModel.MaximumCapacity}");
-        Console.WriteLine($"├─ Program: {machine.Settings.ProgramName}");
-        Console.WriteLine($"└─ Door: {(machine.IsDoorLocked ? "LOCKED" : "UNLOCKED")}");
+        Console.WriteLine($"+- Clothes: {_machine.ClothesCount}/{WashingMachineModel.MaximumCapacity}");
+        Console.WriteLine($"|- Program: {_machine.Settings.ProgramName}");
+        Console.WriteLine($"+- Door: {(_machine.IsDoorLocked ? "LOCKED" : "UNLOCKED")}");
 
         // Real-time progress if running
-        if (machine.State == MachineState.Running && machine.CurrentCycle != null)
+        if (_machine.State == MachineState.Running && _machine.CurrentCycle != null)
         {
-            DisplayProgressBar(machine.CurrentCycle);
+            DisplayProgressBar(_machine.CurrentCycle);
         }
-        else if (machine.State == MachineState.Paused && machine.CurrentCycle != null)
+        else if (_machine.State == MachineState.Paused && _machine.CurrentCycle != null)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("⏸ Cycle PAUSED");
             Console.ResetColor();
-            DisplayProgressBar(machine.CurrentCycle);
+            DisplayProgressBar(_machine.CurrentCycle);
+        }
+        else if (_machine.State == MachineState.Idle && _machine.ClothesCount == 0)
+        {
+            // Show completion message when idle with no clothes
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("✓ Ready for next cycle");
+            Console.ResetColor();
         }
     }
 
@@ -168,9 +207,9 @@ public class DashboardRenderer
 
         Console.Write("[");
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.Write(new string('█', filled));
+        Console.Write(new string('#', filled));
         Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.Write(new string('░', empty));
+        Console.Write(new string('-', empty));
         Console.ResetColor();
         Console.Write($"] {cycle.ProgressPercentage:F1}%");
         Console.WriteLine();

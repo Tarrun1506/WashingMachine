@@ -11,8 +11,6 @@ namespace WashingMachine.Repository;
 public class MachineStateRepository : IMachineStateRepository
 {
     private readonly IStorage _storage;
-    private readonly string _filePath = Configurables.MachineStateFilePath;
-
     private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
 
     public MachineStateRepository(IStorage storage)
@@ -20,10 +18,12 @@ public class MachineStateRepository : IMachineStateRepository
         _storage = storage;
     }
 
+    private string FilePath => Configurables.MachineStateFilePath;
+
     /// <inheritdoc/>
     public async Task SaveAsync(WashingMachineModel machine)
     {
-        await _storage.SaveSingleAsync(_filePath, machine);
+        await _storage.SaveSingleAsync(FilePath, machine);
     }
 
     /// <summary>
@@ -31,24 +31,24 @@ public class MachineStateRepository : IMachineStateRepository
     /// </summary>
     public void Save(WashingMachineModel machine)
     {
-        _storage.SaveSingle(_filePath, machine);
+        _storage.SaveSingle(FilePath, machine);
     }
 
     /// <inheritdoc/>
     public async Task<WashingMachineModel?> LoadAsync()
     {
-        return await _storage.LoadSingleAsync<WashingMachineModel>(_filePath);
+        return await _storage.LoadSingleAsync<WashingMachineModel>(FilePath);
     }
-
     /// <summary>
     /// Loads machine state synchronously — used at startup.
     /// </summary>
     public WashingMachineModel? Load()
     {
-        if (!File.Exists(_filePath)) return null;
+        string filePath = FilePath;
+        if (!File.Exists(filePath)) return null;
         try
         {
-            string json = File.ReadAllText(_filePath);
+            string json = File.ReadAllText(filePath);
             return JsonSerializer.Deserialize<WashingMachineModel>(json, _jsonOptions);
         }
         catch

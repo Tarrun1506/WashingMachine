@@ -8,26 +8,27 @@ public class FavouriteRepository : IFavouriteRepository
 {
     private readonly IStorage _storage;
     private List<Favourite> _favourites = new();
-    private readonly string _filePath = Configurables.FavouriteFilePath;
 
     public FavouriteRepository(IStorage storage)
     {
         _storage = storage;
     }
 
+    private string FilePath => Configurables.FavouriteFilePath;
+
     public async Task LoadDataAsync()
     {
-        _favourites = await _storage.LoadAsync<Favourite>(_filePath);
+        _favourites = await _storage.LoadAsync<Favourite>(FilePath);
     }
 
     public async Task SaveDataAsync()
     {
-        await _storage.SaveAsync(_filePath, _favourites);
+        await _storage.SaveAsync(FilePath, _favourites);
     }
 
     public void SaveData()
     {
-        _storage.Save(_filePath, _favourites);
+        _storage.Save(FilePath, _favourites);
     }
 
     public List<Favourite> GetAll() => _favourites.ToList();

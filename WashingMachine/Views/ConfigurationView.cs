@@ -1,6 +1,8 @@
+using WashingMachine.Constants;
 using WashingMachine.Enums;
-using WashingMachine.Models;
 using WashingMachine.Helpers;
+using WashingMachine.Models;
+using WashingMachine.Views;
 
 namespace WashingMachine.Views;
 
@@ -10,6 +12,7 @@ namespace WashingMachine.Views;
 public class ConfigurationView
 {
     private WashSettings _currentSettings = new();
+    private readonly DashboardRenderer? _renderer;
 
     public ConfigurationView(WashSettings? currentSettings = null, DashboardRenderer? renderer = null)
     {
@@ -17,83 +20,102 @@ public class ConfigurationView
         {
             _currentSettings = currentSettings;
         }
-        // Renderer parameter ignored for simple implementation
+        _renderer = renderer;
     }
 
     public WashSettings GetSettings()
     {
         WashSettings settings = new();
 
-        Console.Clear();
+        _renderer?.ClearContentArea();
+        _renderer?.MoveToContentArea();
+
+        Console.WriteLine();
         Console.WriteLine("--- Configure Washing Machine ---");
         Console.WriteLine();
-        Console.WriteLine("Available Programs: Cotton, Quick Wash, Synthetic, Wool, Heavy Wash");
-        Console.WriteLine($"Program Name [{_currentSettings.ProgramName}]: ");
-        string inputProg = Console.ReadLine()?.Trim() ?? string.Empty;
-        if (string.IsNullOrEmpty(inputProg)) inputProg = _currentSettings.ProgramName;
+        Console.WriteLine($"Available Programs: {string.Join(", ", SettingsValidator.ValidPrograms)}");
+        Console.WriteLine("Press Enter to keep the current value.");
+        Console.WriteLine();
 
-        if (SettingsValidator.ValidateProgramName(inputProg, out string validatedProg))
-        {
-            settings.ProgramName = validatedProg;
-        }
-        else
-        {
-            Console.WriteLine("Invalid program, defaulting to Cotton.");
-            settings.ProgramName = "Cotton";
-        }
-
-        Console.WriteLine($"Temperature  : 0=Cold  1=Warm  2=Hot [{_currentSettings.Temperature}]");
-        Console.Write("Choice : ");
-        string inputTemp = Console.ReadLine()?.Trim() ?? string.Empty;
-        if (string.IsNullOrEmpty(inputTemp))
-            settings.Temperature = _currentSettings.Temperature;
-        else
-            settings.Temperature = int.TryParse(inputTemp, out int temp) && Enum.IsDefined(typeof(Temperature), temp)
-                ? (Temperature)temp
-                : Temperature.Warm;
-
-
-        Console.WriteLine($"Water Level  : 0=Low  1=Medium  2=High [{_currentSettings.WaterLevel}]");
-        Console.Write("Choice : ");
-        string inputWl = Console.ReadLine()?.Trim() ?? string.Empty;
-        if (string.IsNullOrEmpty(inputWl))
-            settings.WaterLevel = _currentSettings.WaterLevel;
-        else
-            settings.WaterLevel = int.TryParse(inputWl, out int wl) && Enum.IsDefined(typeof(WaterLevel), wl)
-                ? (WaterLevel)wl
-                : WaterLevel.Medium;
-
-
-        Console.WriteLine($"Spin Speed   : 1=400rpm  2=800rpm  3=1000rpm  4=1200rpm  5=1400rpm [{_currentSettings.SpinSpeed}]");
-        Console.Write("Choice : ");
-        string inputSpin = Console.ReadLine()?.Trim() ?? string.Empty;
-        if (string.IsNullOrEmpty(inputSpin))
-            settings.SpinSpeed = _currentSettings.SpinSpeed;
-        else
-            settings.SpinSpeed = int.TryParse(inputSpin, out int spin)
-            ? spin switch
-            {
-                1 => SpinSpeed.Rpm400,
-                2 => SpinSpeed.Rpm800,
-                3 => SpinSpeed.Rpm1000,
-                4 => SpinSpeed.Rpm1200,
-                5 => SpinSpeed.Rpm1400,
-                _ => SpinSpeed.Rpm800,
-            }
-            : SpinSpeed.Rpm800;
-
-        Console.Write($"Pre-Wash? (y/n) [{(_currentSettings.IsPreWashEnabled ? "y" : "n")}]: ");
-        string inputPre = Console.ReadLine()?.Trim().ToLower() ?? string.Empty;
-        settings.IsPreWashEnabled = string.IsNullOrEmpty(inputPre) ? _currentSettings.IsPreWashEnabled : (inputPre == "y");
-
-        Console.Write($"Extra Rinse? (y/n) [{(_currentSettings.IsExtraRinseEnabled ? "y" : "n")}]: ");
-        string inputExtra = Console.ReadLine()?.Trim().ToLower() ?? string.Empty;
-        settings.IsExtraRinseEnabled = string.IsNullOrEmpty(inputExtra) ? _currentSettings.IsExtraRinseEnabled : (inputExtra == "y");
-
-        Console.Write($"Quick Wash? (y/n) [{(_currentSettings.IsQuickWashEnabled ? "y" : "n")}]: ");
-        string inputQuick = Console.ReadLine()?.Trim().ToLower() ?? string.Empty;
-        settings.IsQuickWashEnabled = string.IsNullOrEmpty(inputQuick) ? _currentSettings.IsQuickWashEnabled : (inputQuick == "y");
+        settings.ProgramName = ReadProgramName();
+        settings.Temperature = ReadTemperature();
+        settings.WaterLevel = ReadWaterLevel();
+        settings.SpinSpeed = ReadSpinSpeed();
+        settings.IsPreWashEnabled = ReadYesNo($"Pre-Wash? (y/n) [{(_currentSettings.IsPreWashEnabled ? "y" : "n")}]: ", _currentSettings.IsPreWashEnabled);
+        settings.IsExtraRinseEnabled = ReadYesNo($"Extra Rinse? (y/n) [{(_currentSettings.IsExtraRinseEnabled ? "y" : "n")}]: ", _currentSettings.IsExtraRinseEnabled);
+        settings.IsQuickWashEnabled = ReadYesNo($"Quick Wash? (y/n) [{(_currentSettings.IsQuickWashEnabled ? "y" : "n")}]: ", _currentSettings.IsQuickWashEnabled);
 
         return settings;
+    }
+
+    private string ReadProgramName()
+    {
+        Console.WriteLine("Available Programs:");
+        for (int i = 0; i < SettingsValidator.ValidPrograms.Length; i++)
+        {
+            string currentMarker = SettingsValidator.ValidPrograms[i] == _currentSettings.ProgramName ? " [Current]" : "";
+            Console.WriteLine($"  {i + 1}. {SettingsValidator.ValidPrograms[i]}{currentMarker}");
+        }
+        Console.WriteLine();
+        
+        int? choice = ConsoleInput.ReadOptionalIntInRange($"Program Selection [{GetCurrentProgramIndex()}]: ", 1, SettingsValidator.ValidPrograms.Length, ErrorMessages.InvalidProgram);
+        return choice.HasValue ? SettingsValidator.ValidPrograms[choice.Value - 1] : _currentSettings.ProgramName;
+    }
+
+    private int GetCurrentProgramIndex()
+    {
+        for (int i = 0; i < SettingsValidator.ValidPrograms.Length; i++)
+        {
+            if (SettingsValidator.ValidPrograms[i] == _currentSettings.ProgramName)
+                return i + 1;
+        }
+        return 1; // Default to Cotton
+    }
+
+    private Temperature ReadTemperature()
+    {
+        Console.WriteLine($"Temperature  : 0=Cold  1=Warm  2=Hot [{_currentSettings.Temperature}]");
+        int? choice = ConsoleInput.ReadOptionalIntInRange("Choice : ", 0, 2, ErrorMessages.InvalidTemperature);
+        return choice.HasValue ? (Temperature)choice.Value : _currentSettings.Temperature;
+    }
+
+    private WaterLevel ReadWaterLevel()
+    {
+        Console.WriteLine($"Water Level  : 0=Low  1=Medium  2=High [{_currentSettings.WaterLevel}]");
+        int? choice = ConsoleInput.ReadOptionalIntInRange("Choice : ", 0, 2, ErrorMessages.InvalidWaterLevel);
+        return choice.HasValue ? (WaterLevel)choice.Value : _currentSettings.WaterLevel;
+    }
+
+    private SpinSpeed ReadSpinSpeed()
+    {
+        Console.WriteLine($"Spin Speed   : 1=400rpm  2=800rpm  3=1000rpm  4=1200rpm  5=1400rpm [{_currentSettings.SpinSpeed}]");
+        while (true)
+        {
+            Console.Write("Choice : ");
+            string input = ConsoleInput.ReadTrimmed();
+            if (string.IsNullOrEmpty(input))
+                return _currentSettings.SpinSpeed;
+
+            if (SettingsValidator.TryParseSpinChoice(input, out SpinSpeed spinSpeed))
+                return spinSpeed;
+
+            ConsoleInput.PrintError(ErrorMessages.InvalidSpinSpeed);
+        }
+    }
+
+    private static bool ReadYesNo(string prompt, bool current)
+    {
+        while (true)
+        {
+            Console.Write(prompt);
+            string input = ConsoleInput.ReadTrimmed();
+            if (string.IsNullOrEmpty(input))
+                return current;
+
+            if (SettingsValidator.TryParseYesNo(input, out bool value))
+                return value;
+
+            ConsoleInput.PrintError(ErrorMessages.InvalidYesNo);
+        }
     }
 }

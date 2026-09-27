@@ -6,19 +6,24 @@ namespace WashingMachine.Constants;
 public static class Configurables
 {
     /// <summary>
+    /// Gets the base directory for data storage.
+    /// </summary>
+    public static string BaseDirectory => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
+
+    /// <summary>
     /// Path used to store favourite configurations.
     /// </summary>
-    public const string FavouriteFilePath = "Data/Favourites.json";
+    public static string FavouriteFilePath => Path.Combine(BaseDirectory, "Favourites.json");
 
     /// <summary>
     /// Path used to store wash history.
     /// </summary>
-    public const string WashHistoryFilePath = "Data/WashHistory.json";
+    public static string WashHistoryFilePath => Path.Combine(BaseDirectory, "WashHistory.json");
 
     /// <summary>
     /// Path used to store machine state.
     /// </summary>
-    public const string MachineStateFilePath = "Data/MachineState.json";
+    public static string MachineStateFilePath => Path.Combine(BaseDirectory, "MachineState.json");
 
     /// <summary>
     /// Maximum washing machine capacity.
@@ -33,5 +38,5 @@ public static class Configurables
     /// <summary>
     /// Path used to store application logs.
     /// </summary>
-    public const string LogFilePath = "Data/app.log";
+    public static string LogFilePath => Path.Combine(BaseDirectory, "app.log");
 }

@@ -1,4 +1,6 @@
+using WashingMachine.Constants;
 using WashingMachine.Enums;
+using WashingMachine.Helpers;
 using WashingMachine.Models;
 
 namespace WashingMachine.Views;
@@ -8,22 +10,36 @@ namespace WashingMachine.Views;
 /// </summary>
 public class FavouriteView
 {
+    private readonly DashboardRenderer? _renderer;
+
+    public FavouriteView(DashboardRenderer? renderer = null)
+    {
+        _renderer = renderer;
+    }
+
     public FavouriteMenuOption ShowMenu()
     {
-        Console.Clear();
+        _renderer?.ClearContentArea();
+        _renderer?.MoveToContentArea();
+
+        Console.WriteLine();
         Console.WriteLine("--- Favourite Menu ---");
         Console.WriteLine("1. Apply Favourite");
         Console.WriteLine("2. Save Current Settings");
         Console.WriteLine("3. Delete Favourite");
         Console.WriteLine("0. Back");
+        Console.WriteLine();
 
-        int.TryParse(Console.ReadLine(), out int option);
+        int option = ConsoleInput.ReadIntInRange("Choice : ", 0, 3, ErrorMessages.InvalidMenuChoice);
         return (FavouriteMenuOption)option;
     }
 
     public Guid SelectFavourite(List<Favourite> favourites)
     {
-        Console.Clear();
+        _renderer?.ClearContentArea();
+        _renderer?.MoveToContentArea();
+
+        Console.WriteLine();
         Console.WriteLine("--- Favourites ---");
         Console.WriteLine();
         for (int index = 0; index < favourites.Count; index++)
@@ -32,15 +48,30 @@ public class FavouriteView
         }
 
         Console.WriteLine();
-        Console.Write("Select Favourite : ");
-        int selectedIndex = int.Parse(Console.ReadLine() ?? "1");
+        int selectedIndex = ConsoleInput.ReadIntInRange(
+            "Select Favourite : ",
+            1,
+            favourites.Count,
+            ErrorMessages.InvalidFavouriteSelection);
+
         return favourites[selectedIndex - 1].Id;
     }
 
     public Favourite CreateFavourite(WashSettings settings)
     {
-        Console.Write("Favourite Name : ");
-        string name = Console.ReadLine() ?? string.Empty;
+        _renderer?.ClearContentArea();
+        _renderer?.MoveToContentArea();
+
+        Console.WriteLine();
+        string name = ConsoleInput.ReadRequiredText(
+            "Favourite Name : ",
+            input =>
+            {
+                if (!SettingsValidator.TryValidateFavouriteName(input, out _, out string error))
+                    return error;
+                return null;
+            });
+
         return new Favourite
         {
             Name = name,

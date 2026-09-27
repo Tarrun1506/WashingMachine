@@ -1,11 +1,10 @@
-﻿namespace WashingMachine.Constants;
+namespace WashingMachine.Constants;
 
 /// <summary>
 /// Defines application error messages.
 /// </summary>
 public static class ErrorMessages
 {
-    public const string InvalidNumber = "Please enter a valid number.";
     public const string InvalidClothesCount = "Please enter a value greater than zero.";
     public const string CapacityExceeded = "Maximum machine capacity exceeded.";
     public const string MachineFull = "The machine is already at full capacity.";
@@ -19,7 +18,7 @@ public static class ErrorMessages
     public const string CannotModifyWhileRunning = "Cannot change settings while the machine is running. Pause the cycle first.";
     public const string CannotAddWhileRunning = "Cannot add clothes while the machine is running. Please pause the cycle first.";
     public const string CannotRemoveWhileRunning = "Cannot remove clothes while the machine is running. Please pause the cycle first.";
-    public const string InvalidProgram = "Invalid program. Enter a number between 1 and 5.";
+    public const string InvalidProgram = "Invalid program. Choose Cotton, Quick Wash, Synthetic, Wool, or Heavy Wash.";
     public const string InvalidTemperature = "Invalid temperature. Enter 0=Cold, 1=Warm, or 2=Hot.";
     public const string InvalidWaterLevel = "Invalid water level. Enter 0=Low, 1=Medium, or 2=High.";
     public const string InvalidSpinSpeed = "Invalid spin speed. Enter 1=400, 2=800, 3=1000, 4=1200, or 5=1400 rpm.";

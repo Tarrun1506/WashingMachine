@@ -41,26 +41,6 @@ public static class SettingsValidator
         return true;
     }
 
-    public static bool TryParseTemperature(string input, out Temperature temperature)
-    {
-        temperature = Temperature.Warm;
-        if (!int.TryParse(input, out int value) || !Enum.IsDefined(typeof(Temperature), value))
-            return false;
-
-        temperature = (Temperature)value;
-        return true;
-    }
-
-    public static bool TryParseWaterLevel(string input, out WaterLevel waterLevel)
-    {
-        waterLevel = WaterLevel.Medium;
-        if (!int.TryParse(input, out int value) || !Enum.IsDefined(typeof(WaterLevel), value))
-            return false;
-
-        waterLevel = (WaterLevel)value;
-        return true;
-    }
-
     public static bool TryParseSpinChoice(string input, out SpinSpeed spinSpeed)
     {
         spinSpeed = SpinSpeed.Rpm800;

@@ -2,7 +2,6 @@ using WashingMachine.Constants;
 using WashingMachine.Enums;
 using WashingMachine.Helpers;
 using WashingMachine.Models;
-using WashingMachine.Views;
 
 namespace WashingMachine.Views;
 
@@ -57,7 +56,7 @@ public class ConfigurationView
             Console.WriteLine($"  {i + 1}. {SettingsValidator.ValidPrograms[i]}{currentMarker}");
         }
         Console.WriteLine();
-        
+
         int? choice = ConsoleInput.ReadOptionalIntInRange($"Program Selection [{GetCurrentProgramIndex()}]: ", 1, SettingsValidator.ValidPrograms.Length, ErrorMessages.InvalidProgram);
         return choice.HasValue ? SettingsValidator.ValidPrograms[choice.Value - 1] : _currentSettings.ProgramName;
     }
@@ -69,7 +68,7 @@ public class ConfigurationView
             if (SettingsValidator.ValidPrograms[i] == _currentSettings.ProgramName)
                 return i + 1;
         }
-        return 1; // Default to Cotton
+        return 1;
     }
 
     private Temperature ReadTemperature()

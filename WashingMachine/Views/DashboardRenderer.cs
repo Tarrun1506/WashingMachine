@@ -221,11 +221,4 @@ public class DashboardRenderer
         Console.WriteLine($"{minutes:D2}:{seconds:D2} remaining");
         Console.ResetColor();
     }
-
-    private string CenterText(string text, int width)
-    {
-        if (text.Length >= width) return text.Substring(0, width);
-        int padding = (width - text.Length) / 2;
-        return new string(' ', padding) + text + new string(' ', width - text.Length - padding);
-    }
 }

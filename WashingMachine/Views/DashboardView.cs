@@ -32,26 +32,6 @@ public class DashboardView
         return (MenuOption)choice;
     }
 
-    public void DisplayOnly(WashingMachineModel machine)
-    {
-        if (_renderer == null)
-        {
-            _renderer = new DashboardRenderer(machine);
-            Console.Clear();
-            _renderer.RenderDashboard();
-        }
-        else
-        {
-            _renderer.UpdateMachine(machine);
-            _renderer.RenderDashboard();
-        }
-
-        // Move to content area and show menu
-        _renderer.MoveToContentArea();
-        DisplayMenu();
-        Console.WriteLine("Press any key to access menu...");
-    }
-
     /// <summary>
     /// Updates only the dashboard section without clearing the content area.
     /// </summary>
@@ -130,31 +110,11 @@ public class DashboardView
             $"Please enter a number between {min} and {max}.");
     }
 
-    public void DisplayMessage(string message)
-    {
-        ClearContentArea();
-        MoveToContentArea();
-        Console.WriteLine(message);
-        Console.WriteLine("\nPress Enter To Continue...");
-        Console.ReadLine();
-    }
-
     public void DisplayError(string message)
     {
         ClearContentArea();
         MoveToContentArea();
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine(message);
-        Console.ResetColor();
-        Console.WriteLine("\nPress Enter To Continue...");
-        Console.ReadLine();
-    }
-
-    public void DisplaySuccess(string message)
-    {
-        ClearContentArea();
-        MoveToContentArea();
-        Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine(message);
         Console.ResetColor();
         Console.WriteLine("\nPress Enter To Continue...");
@@ -220,17 +180,5 @@ public class DashboardView
         }
 
         _renderer.ForceFullRedraw();
-    }
-
-    private string CenterText(string text, int width)
-    {
-        if (text.Length >= width) return text.Substring(0, width);
-        int padding = (width - text.Length) / 2;
-        return new string(' ', padding) + text + new string(' ', width - text.Length - padding);
-    }
-
-    private string PadRight(string text, int width)
-    {
-        return text.Length >= width ? text.Substring(0, width) : text + new string(' ', width - text.Length);
     }
 }

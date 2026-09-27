@@ -21,11 +21,6 @@ public class FavouriteRepository : IFavouriteRepository
         _favourites = await _storage.LoadAsync<Favourite>(FilePath);
     }
 
-    public async Task SaveDataAsync()
-    {
-        await _storage.SaveAsync(FilePath, _favourites);
-    }
-
     public void SaveData()
     {
         _storage.Save(FilePath, _favourites);

@@ -14,11 +14,7 @@ namespace WashingMachine.Controllers;
 /// </summary>
 public class WashingMachineController : IWashingMachineController
 {
-    private readonly DashboardView       _dashboardView;
-    private readonly ConfigurationView   _configurationView;
-    private readonly FavouriteView       _favouriteView;
-    private readonly HistoryView         _historyView;
-    private readonly PauseView           _pauseView;
+    private readonly DashboardView _dashboardView = new();
 
     private readonly IWashingMachineService  _machineService;
     private readonly IFavouriteService       _favouriteService;
@@ -46,12 +42,6 @@ public class WashingMachineController : IWashingMachineController
         _historyService         = historyService;
         _machineStateRepository = machineStateRepository;
         _logger                 = logger;
-
-        _dashboardView     = new DashboardView();
-        _configurationView = new ConfigurationView();
-        _favouriteView     = new FavouriteView();
-        _historyView       = new HistoryView();
-        _pauseView         = new PauseView();
     }
 
     public void Start()
@@ -150,14 +140,6 @@ public class WashingMachineController : IWashingMachineController
                 _dashboardView.DisplayError(ErrorMessages.InvalidMenuChoice);
                 break;
         }
-    }
-
-    private void ShowAutoRefreshDashboard()
-    {
-        // This is now handled by the continuous dashboard refresh loop
-        // Just show the dashboard and wait for user input
-        _dashboardView.DisplayOnly(_machineService.Machine);
-        Console.ReadKey(true);
     }
 
     private void StartDashboardRefresh()
@@ -562,13 +544,6 @@ public class WashingMachineController : IWashingMachineController
             Console.WriteLine("Press Enter to continue...");
             Console.ReadLine();
         }
-    }
-
-    private string CenterText(string text, int width)
-    {
-        if (text.Length >= width) return text.Substring(0, width);
-        int padding = (width - text.Length) / 2;
-        return new string(' ', padding) + text + new string(' ', width - text.Length - padding);
     }
 
     private void OnCycleCancelled(object? sender, EventArgs e)

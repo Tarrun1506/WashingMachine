@@ -21,11 +21,6 @@ public class WashHistoryRepository : IWashHistoryRepository
         _history = await _storage.LoadAsync<WashHistory>(FilePath);
     }
 
-    public async Task SaveDataAsync()
-    {
-        await _storage.SaveAsync(FilePath, _history);
-    }
-
     public void SaveData()
     {
         _storage.Save(FilePath, _history);

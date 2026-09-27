@@ -46,38 +46,6 @@ public class JsonStorage : IStorage
     }
 
     /// <inheritdoc/>
-    public async Task SaveAsync<T>(string filePath, List<T> data)
-    {
-        try
-        {
-            string? directory = Path.GetDirectoryName(filePath);
-            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            await using FileStream stream = new(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
-            await JsonSerializer.SerializeAsync(stream, data, JsonOptions);
-        }
-        catch (JsonException exception)
-        {
-            throw new StorageException(ErrorMessages.SerializeFailed, exception);
-        }
-        catch (IOException exception)
-        {
-            throw new StorageException(ErrorMessages.WriteFailed, exception);
-        }
-        catch (UnauthorizedAccessException exception)
-        {
-            throw new StorageException(ErrorMessages.AccessDenied, exception);
-        }
-        catch (NotSupportedException exception)
-        {
-            throw new StorageException(ErrorMessages.InvalidFilePath, exception);
-        }
-    }
-
-    /// <inheritdoc/>
     public void Save<T>(string filePath, List<T> data)
     {
         try
@@ -93,7 +61,7 @@ public class JsonStorage : IStorage
     }
 
     /// <inheritdoc/>
-    public async Task<T?> LoadSingleAsync<T>(string filePath)
+    public T? LoadSingle<T>(string filePath)
     {
         if (!File.Exists(filePath))
         {
@@ -102,8 +70,8 @@ public class JsonStorage : IStorage
 
         try
         {
-            await using FileStream stream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions);
+            string json = File.ReadAllText(filePath);
+            return JsonSerializer.Deserialize<T>(json, JsonOptions);
         }
         catch (JsonException exception)
         {
@@ -123,38 +91,6 @@ public class JsonStorage : IStorage
         }
     }
 
-    /// <inheritdoc/>
-    public async Task SaveSingleAsync<T>(string filePath, T data)
-    {
-        try
-        {
-            string? directory = Path.GetDirectoryName(filePath);
-
-            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            await using FileStream stream = new(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
-            await JsonSerializer.SerializeAsync(stream, data, JsonOptions);
-        }
-        catch (JsonException exception)
-        {
-            throw new StorageException(ErrorMessages.SerializeFailed, exception);
-        }
-        catch (IOException exception)
-        {
-            throw new StorageException(ErrorMessages.WriteFailed, exception);
-        }
-        catch (UnauthorizedAccessException exception)
-        {
-            throw new StorageException(ErrorMessages.AccessDenied, exception);
-        }
-        catch (NotSupportedException exception)
-        {
-            throw new StorageException(ErrorMessages.InvalidFilePath, exception);
-        }
-    }
     /// <inheritdoc/>
     public void SaveSingle<T>(string filePath, T data)
     {

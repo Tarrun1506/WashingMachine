@@ -9,6 +9,5 @@ public interface IFavouriteRepository
     void Add(Favourite favorite);
     void Delete(Guid id);
     Task LoadDataAsync();
-    Task SaveDataAsync();
     void SaveData();
 }

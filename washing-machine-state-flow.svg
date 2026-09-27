@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title description">
+  <title id="title">Washing Machine State Flow</title>
+  <desc id="description">State transitions for the WashingMachine application: Idle, Ready, Running, and Paused, including clothes changes, cycle completion, cancellation, and recovery after restart.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#53657d"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M1,1 L11,6 L1,11 Z" fill="#16866a"/>
+    </marker>
+    <style>
+      text { font-family: 'Segoe UI', Arial, sans-serif; fill: #17243a; }
+      .title { font-size: 34px; font-weight: 700; }
+      .subtitle { font-size: 16px; fill: #5c6c82; }
+      .state-title { font-size: 23px; font-weight: 700; }
+      .state-detail { font-size: 14px; fill: #56657a; }
+      .label { font-size: 14px; font-weight: 600; fill: #35445b; }
+      .small { font-size: 13px; fill: #5c6c82; }
+      .line { fill: none; stroke: #53657d; stroke-width: 3; marker-end: url(#arrow); }
+      .recovery-line { fill: none; stroke: #16866a; stroke-width: 3; marker-end: url(#arrowGreen); }
+    </style>
+  </defs>
+
+  <rect width="1400" height="900" fill="#f5f7fb"/>
+  <rect x="42" y="38" width="1316" height="824" rx="24" fill="#ffffff" stroke="#dbe3ee" stroke-width="2"/>
+  <text x="84" y="102" class="title">Washing Machine — State Flow</text>
+  <text x="84" y="132" class="subtitle">Normal operation and saved-cycle recovery, based on the current application logic</text>
+
+  <!-- Main operation states -->
+  <g>
+    <rect x="90" y="218" width="235" height="118" rx="18" fill="#edf2f8" stroke="#8a9ab0" stroke-width="2.5"/>
+    <circle cx="124" cy="257" r="14" fill="#73839a"/>
+    <text x="151" y="265" class="state-title">Idle</text>
+    <text x="112" y="300" class="state-detail">No active wash cycle</text>
+
+    <rect x="405" y="218" width="235" height="118" rx="18" fill="#e8f3ff" stroke="#5593cb" stroke-width="2.5"/>
+    <circle cx="439" cy="257" r="14" fill="#3e88c6"/>
+    <text x="466" y="265" class="state-title">Ready</text>
+    <text x="427" y="300" class="state-detail">Clothes loaded; can start</text>
+
+    <rect x="720" y="218" width="235" height="118" rx="18" fill="#e6f6f0" stroke="#35a27d" stroke-width="2.5"/>
+    <circle cx="754" cy="257" r="14" fill="#16866a"/>
+    <text x="781" y="265" class="state-title">Running</text>
+    <text x="742" y="300" class="state-detail">Door locked; cycle active</text>
+
+    <rect x="1035" y="218" width="235" height="118" rx="18" fill="#fff4df" stroke="#d59a31" stroke-width="2.5"/>
+    <circle cx="1069" cy="257" r="14" fill="#cc8b17"/>
+    <text x="1096" y="265" class="state-title">Paused</text>
+    <text x="1057" y="300" class="state-detail">Cycle waits for resume/cancel</text>
+  </g>
+
+  <!-- Forward transitions -->
+  <path d="M325 276 H395" class="line"/>
+  <rect x="325" y="180" width="82" height="28" rx="8" fill="#fff"/>
+  <text x="366" y="199" text-anchor="middle" class="label">Add clothes</text>
+  <text x="366" y="216" text-anchor="middle" class="small">count &gt; 0</text>
+
+  <path d="M640 276 H710" class="line"/>
+  <rect x="637" y="174" width="80" height="42" rx="8" fill="#fff"/>
+  <text x="677" y="192" text-anchor="middle" class="label">Start cycle</text>
+  <text x="677" y="209" text-anchor="middle" class="small">clothes loaded</text>
+
+  <path d="M955 276 H1025" class="line"/>
+  <rect x="953" y="180" width="76" height="28" rx="8" fill="#fff"/>
+  <text x="991" y="199" text-anchor="middle" class="label">Pause</text>
+
+  <!-- Resume path -->
+  <path d="M1152 346 C1152 430 842 430 842 346" class="line"/>
+  <rect x="950" y="394" width="92" height="28" rx="8" fill="#fff"/>
+  <text x="996" y="413" text-anchor="middle" class="label">Resume</text>
+
+  <!-- Remove all from Ready -->
+  <path d="M522 346 C522 430 207 430 207 346" class="line"/>
+  <rect x="307" y="394" width="118" height="28" rx="8" fill="#fff"/>
+  <text x="366" y="413" text-anchor="middle" class="label">Remove all clothes</text>
+
+  <!-- Normal completion and cancellation -->
+  <path d="M790 346 C790 492 207 492 207 346" class="line"/>
+  <rect x="413" y="455" width="168" height="30" rx="8" fill="#fff"/>
+  <text x="497" y="475" text-anchor="middle" class="label">Cycle completed + unload</text>
+
+  <path d="M895 346 C895 536 207 536 207 346" class="line"/>
+  <rect x="624" y="500" width="132" height="30" rx="8" fill="#fff"/>
+  <text x="690" y="520" text-anchor="middle" class="label">Cancel running cycle</text>
+
+  <path d="M1080 346 C1080 580 207 580 207 346" class="line"/>
+  <rect x="836" y="544" width="138" height="30" rx="8" fill="#fff"/>
+  <text x="905" y="564" text-anchor="middle" class="label">Cancel paused cycle</text>
+
+  <!-- Restore saved state branch -->
+  <rect x="92" y="664" width="270" height="96" rx="16" fill="#eef8f4" stroke="#65ae94" stroke-width="2.5"/>
+  <text x="227" y="700" text-anchor="middle" class="state-title" style="font-size:20px">Saved active cycle</text>
+  <text x="227" y="728" text-anchor="middle" class="state-detail">Running/Paused + cycle data</text>
+
+  <path d="M362 712 H465" class="recovery-line"/>
+  <polygon points="550,654 635,712 550,770 465,712" fill="#f1f5fa" stroke="#75869d" stroke-width="2.5"/>
+  <text x="550" y="706" text-anchor="middle" class="label">Recovery</text>
+  <text x="550" y="725" text-anchor="middle" class="label">choice</text>
+
+  <path d="M635 696 C735 650 810 615 820 345" class="recovery-line"/>
+  <rect x="690" y="616" width="196" height="30" rx="8" fill="#fff"/>
+  <text x="788" y="636" text-anchor="middle" class="label">Continue — resume cycle</text>
+
+  <path d="M550 770 V805 H208 V346" class="recovery-line"/>
+  <rect x="313" y="782" width="154" height="28" rx="8" fill="#fff"/>
+  <text x="390" y="801" text-anchor="middle" class="label">Reset — return to Idle</text>
+
+  <text x="690" y="820" class="small">Other notes: settings/favourites do not change the machine state. Add/remove are blocked while Running.</text>
+</svg>

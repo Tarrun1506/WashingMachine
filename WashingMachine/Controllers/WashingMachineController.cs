@@ -14,7 +14,7 @@ namespace WashingMachine.Controllers;
 /// </summary>
 public class WashingMachineController : IWashingMachineController
 {
-    private readonly DashboardView _dashboardView = new();
+    private readonly ConsoleMenuView _consoleView = new();
 
     private readonly IWashingMachineService  _machineService;
     private readonly IFavouriteService       _favouriteService;
@@ -25,11 +25,8 @@ public class WashingMachineController : IWashingMachineController
     private bool _isRunning = true;
     private bool _changesSaved = false;
     private volatile bool _showCancellationScreen = false;
-    private volatile bool _cycleJustCompleted = false;
     private readonly object _saveLock = new();
     private readonly object _machineSaveLock = new();
-    private CancellationTokenSource? _dashboardRefreshCts;
-    private Task? _dashboardRefreshTask;
 
     public WashingMachineController(
         IWashingMachineService  machineService,
@@ -75,12 +72,6 @@ public class WashingMachineController : IWashingMachineController
             }
         }
 
-        // Start dashboard refresh loop
-        StartDashboardRefresh();
-
-        // Initialize dashboard renderer
-        _dashboardView.EnsureRendererInitialized(_machineService.Machine);
-
         while (_isRunning)
         {
             // Check for special screens to show
@@ -91,13 +82,10 @@ public class WashingMachineController : IWashingMachineController
             }
             else
             {
-                MenuOption option = _dashboardView.Show(_machineService.Machine);
+                MenuOption option = _consoleView.Show(_machineService.Machine);
                 HandleMenuOption(option);
             }
         }
-
-        // Stop dashboard refresh loop
-        StopDashboardRefresh();
 
         SaveChanges();
         _logger.Log("App", "Application exiting");
@@ -114,7 +102,7 @@ public class WashingMachineController : IWashingMachineController
             case MenuOption.AddClothes:
                 if (_machineService.Machine.State == MachineState.Running)
                 {
-                    _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ErrorMessages.CannotAddWhileRunning);
+                    _consoleView.DisplayError(ErrorMessages.CannotAddWhileRunning);
                 }
                 else
                 {
@@ -124,7 +112,7 @@ public class WashingMachineController : IWashingMachineController
             case MenuOption.RemoveClothes:
                 if (_machineService.Machine.State == MachineState.Running)
                 {
-                    _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ErrorMessages.CannotRemoveWhileRunning);
+                    _consoleView.DisplayError(ErrorMessages.CannotRemoveWhileRunning);
                 }
                 else
                 {
@@ -138,43 +126,9 @@ public class WashingMachineController : IWashingMachineController
                 _isRunning = false;
                 break;
             default:
-                _dashboardView.DisplayError(ErrorMessages.InvalidMenuChoice);
+                _consoleView.DisplayError(ErrorMessages.InvalidMenuChoice);
                 break;
         }
-    }
-
-    private void StartDashboardRefresh()
-    {
-        _dashboardRefreshCts = new CancellationTokenSource();
-        CancellationToken token = _dashboardRefreshCts.Token;
-        _dashboardRefreshTask = Task.Run(async () =>
-        {
-            using PeriodicTimer timer = new(TimeSpan.FromSeconds(1));
-            try
-            {
-                while (await timer.WaitForNextTickAsync(token))
-                {
-                    WashingMachineModel machine = _machineService.Machine;
-                    if (machine.State is MachineState.Running or MachineState.Paused || _cycleJustCompleted)
-                    {
-                        _dashboardView.UpdateDashboard(machine);
-                        if (_cycleJustCompleted) _cycleJustCompleted = false;
-                    }
-                }
-            }
-            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
-            catch (Exception ex) { _logger.LogError("DashboardRefresh", ex.ToString()); }
-        });
-    }
-
-    private void StopDashboardRefresh()
-    {
-        _dashboardRefreshCts?.Cancel();
-        try { _dashboardRefreshTask?.GetAwaiter().GetResult(); }
-        catch (Exception ex) { _logger.LogError("DashboardShutdown", ex.ToString()); }
-        _dashboardRefreshCts?.Dispose();
-        _dashboardRefreshCts = null;
-        _dashboardRefreshTask = null;
     }
 
     private void StartWash()
@@ -184,12 +138,12 @@ public class WashingMachineController : IWashingMachineController
             _machineService.StartCycle();
             SaveMachineState();
             _logger.Log("Controller", "Cycle started");
-            _dashboardView.DisplayMessageWithRedraw(_machineService.Machine, "Washing cycle started! Progress will be shown on dashboard.");
+            _consoleView.DisplayMessage("Washing cycle started. It will run in the background.");
         }
         catch (Exception ex)
         {
             _logger.LogError("StartWash", ex.Message);
-            _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ex.Message);
+            _consoleView.DisplayError(ex.Message);
         }
     }
 
@@ -197,16 +151,15 @@ public class WashingMachineController : IWashingMachineController
     {
         try
         {
-            var renderer = _dashboardView.GetRenderer();
-            var configView = new ConfigurationView(_machineService.Machine.Settings, renderer);
+            var configView = new ConfigurationView(_machineService.Machine.Settings);
             WashSettings settings = configView.GetSettings();
             _machineService.ApplySettings(settings);
-            _dashboardView.DisplayMessageWithRedraw(_machineService.Machine, "Settings applied.");
+            _consoleView.DisplayMessage("Settings applied.");
         }
         catch (Exception ex)
         {
             _logger.LogError("ConfigureMachine", ex.Message);
-            _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ex.Message);
+            _consoleView.DisplayError(ex.Message);
         }
     }
 
@@ -218,22 +171,22 @@ public class WashingMachineController : IWashingMachineController
         {
             if (RemainingCapacity <= 0)
             {
-                _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ErrorMessages.MachineFull);
+                _consoleView.DisplayError(ErrorMessages.MachineFull);
                 return;
             }
 
-            int count = _dashboardView.ReadClothesCount(1, RemainingCapacity);
+            int count = _consoleView.ReadClothesCount(1, RemainingCapacity);
             _machineService.AddClothes(count);
-            _dashboardView.DisplayMessageWithRedraw(_machineService.Machine, $"Added {count} clothes. Total: {_machineService.Machine.ClothesCount}");
+            _consoleView.DisplayMessage($"Added {count} clothes. Total: {_machineService.Machine.ClothesCount}");
         }
         catch (Exception ex)
         {
             _logger.LogError("AddClothes", ex.Message);
-            _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ex.Message);
+            _consoleView.DisplayError(ex.Message);
         }
     }
 
-    private void AddClothesWithoutRedraw()
+    private void AddClothesWhilePaused()
     {
         try
         {
@@ -245,7 +198,7 @@ public class WashingMachineController : IWashingMachineController
                 return;
             }
 
-            int count = _dashboardView.ReadClothesCount(1, RemainingCapacity);
+            int count = _consoleView.ReadClothesCount(1, RemainingCapacity);
             _machineService.AddClothes(count);
             Console.WriteLine($"Added {count} clothes. Total: {_machineService.Machine.ClothesCount}");
             Console.WriteLine("\nPress Enter to continue...");
@@ -267,22 +220,22 @@ public class WashingMachineController : IWashingMachineController
             int loaded = _machineService.Machine.ClothesCount;
             if (loaded == 0)
             {
-                _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ErrorMessages.NoClothesToRemove);
+                _consoleView.DisplayError(ErrorMessages.NoClothesToRemove);
                 return;
             }
 
-            int count = _dashboardView.ReadClothesCount(1, loaded);
+            int count = _consoleView.ReadClothesCount(1, loaded);
             _machineService.RemoveClothes(count);
-            _dashboardView.DisplayMessageWithRedraw(_machineService.Machine, $"Removed. Remaining: {_machineService.Machine.ClothesCount}");
+            _consoleView.DisplayMessage($"Removed. Remaining: {_machineService.Machine.ClothesCount}");
         }
         catch (Exception ex)
         {
             _logger.LogError("RemoveClothes", ex.Message);
-            _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ex.Message);
+            _consoleView.DisplayError(ex.Message);
         }
     }
 
-    private void RemoveClothesWithoutRedraw()
+    private void RemoveClothesWhilePaused()
     {
         try
         {
@@ -295,7 +248,7 @@ public class WashingMachineController : IWashingMachineController
                 return;
             }
 
-            int count = _dashboardView.ReadClothesCount(1, loaded);
+            int count = _consoleView.ReadClothesCount(1, loaded);
             _machineService.RemoveClothes(count);
             Console.WriteLine($"Removed. Remaining: {_machineService.Machine.ClothesCount}");
             Console.WriteLine("\nPress Enter to continue...");
@@ -314,96 +267,92 @@ public class WashingMachineController : IWashingMachineController
     {
         _logger.Log("Controller", "Viewing history");
         List<WashHistory> history = _historyService.GetAll();
-        var renderer = _dashboardView.GetRenderer();
-        var historyView = new HistoryView(renderer);
+        var historyView = new HistoryView();
         historyView.DisplayHistory(history);
-        // Force full redraw after viewing history
-        _dashboardView.ForceFullRedraw(_machineService.Machine);
     }
 
     private void ManageFavourites()
     {
-        var renderer = _dashboardView.GetRenderer();
-        var favouriteView = new FavouriteView(renderer);
+        var favouriteView = new FavouriteView();
         FavouriteMenuOption option = favouriteView.ShowMenu();
         switch (option)
         {
-            case FavouriteMenuOption.Apply: ApplyFavourite(renderer); break;
-            case FavouriteMenuOption.SaveCurrent: SaveFavourite(renderer); break;
-            case FavouriteMenuOption.Delete: DeleteFavourite(renderer); break;
+            case FavouriteMenuOption.Apply: ApplyFavourite(); break;
+            case FavouriteMenuOption.SaveCurrent: SaveFavourite(); break;
+            case FavouriteMenuOption.Delete: DeleteFavourite(); break;
             default: break;
         }
     }
 
-    private void ApplyFavourite(DashboardRenderer? renderer)
+    private void ApplyFavourite()
     {
         try
         {
             List<Favourite> favourites = _favouriteService.GetAll();
             if (favourites.Count == 0)
             {
-                _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ErrorMessages.NoFavouritesSaved);
+                _consoleView.DisplayError(ErrorMessages.NoFavouritesSaved);
                 return;
             }
 
-            var favouriteView = new FavouriteView(renderer);
+            var favouriteView = new FavouriteView();
             Guid id = favouriteView.SelectFavourite(favourites);
             Favourite? fav = _favouriteService.GetById(id);
             if (fav == null)
             {
-                _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ErrorMessages.FavouriteNotFound);
+                _consoleView.DisplayError(ErrorMessages.FavouriteNotFound);
                 return;
             }
 
             _machineService.ApplyFavourite(fav);
             _logger.Log("Controller", $"Applied favourite '{fav.Name}'");
-            _dashboardView.DisplayMessageWithRedraw(_machineService.Machine, $"Favourite '{fav.Name}' applied.");
+            _consoleView.DisplayMessage($"Favourite '{fav.Name}' applied.");
         }
         catch (Exception ex)
         {
             _logger.LogError("ApplyFavourite", ex.Message);
-            _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ex.Message);
+            _consoleView.DisplayError(ex.Message);
         }
     }
 
-    private void SaveFavourite(DashboardRenderer? renderer)
+    private void SaveFavourite()
     {
         try
         {
-            var favouriteView = new FavouriteView(renderer);
+            var favouriteView = new FavouriteView();
             Favourite fav = favouriteView.CreateFavourite(_machineService.Machine.Settings);
             _favouriteService.Add(fav);
             _logger.Log("Controller", $"Saved favourite '{fav.Name}'");
-            _dashboardView.DisplaySuccessWithRedraw(_machineService.Machine, CommonMessages.FavouriteSaved);
+            _consoleView.DisplaySuccess(CommonMessages.FavouriteSaved);
         }
         catch (Exception ex)
         {
             _logger.LogError("SaveFavourite", ex.Message);
-            _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ex.Message);
+            _consoleView.DisplayError(ex.Message);
         }
     }
 
-    private void DeleteFavourite(DashboardRenderer? renderer)
+    private void DeleteFavourite()
     {
         try
         {
             List<Favourite> favourites = _favouriteService.GetAll();
             if (favourites.Count == 0)
             {
-                _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ErrorMessages.NoFavouritesSaved);
+                _consoleView.DisplayError(ErrorMessages.NoFavouritesSaved);
                 return;
             }
 
-            var favouriteView = new FavouriteView(renderer);
+            var favouriteView = new FavouriteView();
             Guid id = favouriteView.SelectFavourite(favourites);
             _favouriteService.Delete(id);
             _logger.Log("Controller", "Deleted a favourite");
-            _dashboardView.DisplaySuccessWithRedraw(_machineService.Machine, CommonMessages.FavouriteDeleted);
+            _consoleView.DisplaySuccess(CommonMessages.FavouriteDeleted);
         }
         catch (Exception ex)
         {
             _logger.LogError("DeleteFavourite", ex.Message);
-            _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ex.Message);
+            _consoleView.DisplayError(ex.Message);
         }
     }
 
@@ -414,8 +363,7 @@ public class WashingMachineController : IWashingMachineController
             _machineService.PauseCycle();
             _logger.Log("Controller", "Cycle paused, showing pause menu");
 
-            var renderer = _dashboardView.GetRenderer();
-            var pauseView = new PauseView(renderer);
+            var pauseView = new PauseView();
 
             // Loop to keep showing pause menu until user resumes or cancels
             bool stayInPauseMenu = true;
@@ -426,23 +374,23 @@ public class WashingMachineController : IWashingMachineController
                 {
                     case PauseMenuOption.Resume:
                         _machineService.ResumeCycle();
-                        _dashboardView.DisplayMessageWithRedraw(_machineService.Machine, "Cycle resumed.");
+                        _consoleView.DisplayMessage("Cycle resumed.");
                         stayInPauseMenu = false;
                         break;
 
                     case PauseMenuOption.Cancel:
                         _machineService.CancelCycle();
-                        _dashboardView.DisplayMessageWithRedraw(_machineService.Machine, "Cycle cancelled.");
+                        _consoleView.DisplayMessage("Cycle cancelled.");
                         stayInPauseMenu = false;
                         break;
 
                     case PauseMenuOption.AddClothes:
-                        AddClothesWithoutRedraw();
+                        AddClothesWhilePaused();
                         // Stay in pause menu
                         break;
 
                     case PauseMenuOption.RemoveClothes:
-                        RemoveClothesWithoutRedraw();
+                        RemoveClothesWhilePaused();
                         // Stay in pause menu
                         break;
 
@@ -454,7 +402,7 @@ public class WashingMachineController : IWashingMachineController
         catch (Exception ex)
         {
             _logger.LogError("HandlePause", ex.Message);
-            _dashboardView.DisplayErrorWithRedraw(_machineService.Machine, ex.Message);
+            _consoleView.DisplayError(ex.Message);
         }
     }
 
@@ -499,9 +447,8 @@ public class WashingMachineController : IWashingMachineController
     private void OnCycleCompleted(object? sender, EventArgs e)
     {
         _logger.Log("Cycle", "Completed event received");
-        _cycleJustCompleted = true;
-        // Force dashboard update to show completion state with menu
-        _dashboardView.ShowMenuWithDashboard(_machineService.Machine);
+        SaveMachineState();
+        _consoleView.Notify("Washing cycle completed.");
     }
 
     private void ShowCycleRestorationScreen(WashingMachineModel saved)
@@ -536,6 +483,7 @@ public class WashingMachineController : IWashingMachineController
         else
         {
             _machineService.ResetMachine();
+            SaveMachineState();
             Console.WriteLine("\nMachine state has been reset.");
             Console.WriteLine("Press Enter to continue...");
             Console.ReadLine();
@@ -545,16 +493,13 @@ public class WashingMachineController : IWashingMachineController
     private void OnCycleCancelled(object? sender, EventArgs e)
     {
         _logger.Log("Cycle", "Cancelled event received");
+        SaveMachineState();
         _showCancellationScreen = true;
     }
 
     private void ShowCancellationScreen()
     {
         _logger.Log("Cycle", "Showing cancellation screen");
-
-        // Clear content area and show cancellation message
-        _dashboardView.ClearContentArea();
-        _dashboardView.MoveToContentArea();
 
         Console.ForegroundColor = ConsoleColor.Yellow;
         Console.WriteLine("+============================================================+");
@@ -565,7 +510,5 @@ public class WashingMachineController : IWashingMachineController
         Console.ResetColor();
         Console.ReadLine();
 
-        // Force full redraw after cancellation
-        _dashboardView.ForceFullRedraw(_machineService.Machine);
     }
 }

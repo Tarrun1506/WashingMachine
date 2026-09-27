@@ -9,18 +9,8 @@ namespace WashingMachine.Views;
 /// </summary>
 public class PauseView
 {
-    private readonly DashboardRenderer? _renderer;
-
-    public PauseView(DashboardRenderer? renderer = null)
-    {
-        _renderer = renderer;
-    }
-
     public PauseMenuOption Show(WashingMachineModel? machine = null)
     {
-        _renderer?.ClearContentArea();
-        _renderer?.MoveToContentArea();
-
         Console.WriteLine();
         Console.WriteLine("--- Cycle Paused ---");
         if (machine != null)

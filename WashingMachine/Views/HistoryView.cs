@@ -7,18 +7,8 @@ namespace WashingMachine.Views;
 /// </summary>
 public class HistoryView
 {
-    private readonly DashboardRenderer? _renderer;
-
-    public HistoryView(DashboardRenderer? renderer = null)
-    {
-        _renderer = renderer;
-    }
-
     public void DisplayHistory(List<WashHistory> history)
     {
-        _renderer?.ClearContentArea();
-        _renderer?.MoveToContentArea();
-
         Console.WriteLine();
         Console.WriteLine("--- Wash History ---");
         Console.WriteLine();

@@ -17,7 +17,7 @@ internal class Program
     /// </summary>
     public static void Main(string[] args)
     {
-        Console.Title = "WashMate - Smart Washing Machine";
+        Console.Title = "WashMate - Simple Console";
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         Console.InputEncoding = System.Text.Encoding.UTF8;
 

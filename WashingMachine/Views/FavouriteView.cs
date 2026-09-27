@@ -10,18 +10,8 @@ namespace WashingMachine.Views;
 /// </summary>
 public class FavouriteView
 {
-    private readonly DashboardRenderer? _renderer;
-
-    public FavouriteView(DashboardRenderer? renderer = null)
-    {
-        _renderer = renderer;
-    }
-
     public FavouriteMenuOption ShowMenu()
     {
-        _renderer?.ClearContentArea();
-        _renderer?.MoveToContentArea();
-
         Console.WriteLine();
         Console.WriteLine("--- Favourite Menu ---");
         Console.WriteLine("1. Apply Favourite");
@@ -36,9 +26,6 @@ public class FavouriteView
 
     public Guid SelectFavourite(List<Favourite> favourites)
     {
-        _renderer?.ClearContentArea();
-        _renderer?.MoveToContentArea();
-
         Console.WriteLine();
         Console.WriteLine("--- Favourites ---");
         Console.WriteLine();
@@ -59,9 +46,6 @@ public class FavouriteView
 
     public Favourite CreateFavourite(WashSettings settings)
     {
-        _renderer?.ClearContentArea();
-        _renderer?.MoveToContentArea();
-
         Console.WriteLine();
         string name = ConsoleInput.ReadRequiredText(
             "Favourite Name : ",

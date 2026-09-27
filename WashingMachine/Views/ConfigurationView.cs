@@ -11,23 +11,17 @@ namespace WashingMachine.Views;
 public class ConfigurationView
 {
     private WashSettings _currentSettings = new();
-    private readonly DashboardRenderer? _renderer;
-
-    public ConfigurationView(WashSettings? currentSettings = null, DashboardRenderer? renderer = null)
+    public ConfigurationView(WashSettings? currentSettings = null)
     {
         if (currentSettings != null)
         {
             _currentSettings = currentSettings;
         }
-        _renderer = renderer;
     }
 
     public WashSettings GetSettings()
     {
         WashSettings settings = new();
-
-        _renderer?.ClearContentArea();
-        _renderer?.MoveToContentArea();
 
         Console.WriteLine();
         Console.WriteLine("--- Configure Washing Machine ---");

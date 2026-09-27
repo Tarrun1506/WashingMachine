@@ -50,9 +50,7 @@ public class JsonStorage : IStorage
     {
         try
         {
-            EnsureDirectory(filePath);
-            string json = JsonSerializer.Serialize(data, JsonOptions);
-            File.WriteAllText(filePath, json);
+            WriteAtomically(filePath, data);
         }
         catch (Exception exception)
         {
@@ -96,9 +94,7 @@ public class JsonStorage : IStorage
     {
         try
         {
-            EnsureDirectory(filePath);
-            string json = JsonSerializer.Serialize(data, JsonOptions);
-            File.WriteAllText(filePath, json);
+            WriteAtomically(filePath, data);
         }
         catch (Exception exception)
         {
@@ -111,5 +107,25 @@ public class JsonStorage : IStorage
         string? directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
             Directory.CreateDirectory(directory);
+    }
+
+    private static void WriteAtomically<T>(string filePath, T data)
+    {
+        EnsureDirectory(filePath);
+        string temporaryPath = $"{filePath}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (FileStream stream = new(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                JsonSerializer.Serialize(stream, data, JsonOptions);
+                stream.Flush(flushToDisk: true);
+            }
+
+            File.Move(temporaryPath, filePath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
     }
 }

@@ -24,11 +24,12 @@ public class WashingMachineController : IWashingMachineController
 
     private bool _isRunning = true;
     private bool _changesSaved = false;
-    private bool _showCancellationScreen = false;
-    private bool _dashboardRefreshEnabled = false;
-    private bool _cycleJustCompleted = false;
+    private volatile bool _showCancellationScreen = false;
+    private volatile bool _cycleJustCompleted = false;
     private readonly object _saveLock = new();
+    private readonly object _machineSaveLock = new();
     private CancellationTokenSource? _dashboardRefreshCts;
+    private Task? _dashboardRefreshTask;
 
     public WashingMachineController(
         IWashingMachineService  machineService,
@@ -68,7 +69,7 @@ public class WashingMachineController : IWashingMachineController
             _machineService.RestoreState(saved);
 
             // Only show restoration screen if there's a running cycle to restore
-            if (saved.State == MachineState.Running)
+            if (saved.State is MachineState.Running or MachineState.Paused)
             {
                 ShowCycleRestorationScreen(saved);
             }
@@ -144,49 +145,36 @@ public class WashingMachineController : IWashingMachineController
 
     private void StartDashboardRefresh()
     {
-        _dashboardRefreshEnabled = true;
         _dashboardRefreshCts = new CancellationTokenSource();
-
-        Task.Run(() =>
+        CancellationToken token = _dashboardRefreshCts.Token;
+        _dashboardRefreshTask = Task.Run(async () =>
         {
-            while (_dashboardRefreshEnabled && !_dashboardRefreshCts.Token.IsCancellationRequested)
+            using PeriodicTimer timer = new(TimeSpan.FromSeconds(1));
+            try
             {
-                try
+                while (await timer.WaitForNextTickAsync(token))
                 {
-                    Thread.Sleep(1000); // Refresh every 1 second
-
-                    if (_dashboardRefreshCts.Token.IsCancellationRequested)
-                        break;
-
-                    // Update dashboard if machine is running, paused, or just completed
-                    if (_machineService.Machine.State == MachineState.Running ||
-                        _machineService.Machine.State == MachineState.Paused ||
-                        _cycleJustCompleted)
+                    WashingMachineModel machine = _machineService.Machine;
+                    if (machine.State is MachineState.Running or MachineState.Paused || _cycleJustCompleted)
                     {
-                        // Update dashboard without clearing content
-                        _dashboardView.UpdateDashboard(_machineService.Machine);
-                        
-                        // Reset the flag after one update
-                        if (_cycleJustCompleted)
-                        {
-                            _cycleJustCompleted = false;
-                        }
+                        _dashboardView.UpdateDashboard(machine);
+                        if (_cycleJustCompleted) _cycleJustCompleted = false;
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError("DashboardRefresh", ex.Message);
-                    // Don't break on error, continue trying
-                }
             }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+            catch (Exception ex) { _logger.LogError("DashboardRefresh", ex.ToString()); }
         });
     }
 
     private void StopDashboardRefresh()
     {
-        _dashboardRefreshEnabled = false;
         _dashboardRefreshCts?.Cancel();
+        try { _dashboardRefreshTask?.GetAwaiter().GetResult(); }
+        catch (Exception ex) { _logger.LogError("DashboardShutdown", ex.ToString()); }
         _dashboardRefreshCts?.Dispose();
+        _dashboardRefreshCts = null;
+        _dashboardRefreshTask = null;
     }
 
     private void StartWash()
@@ -194,6 +182,7 @@ public class WashingMachineController : IWashingMachineController
         try
         {
             _machineService.StartCycle();
+            SaveMachineState();
             _logger.Log("Controller", "Cycle started");
             _dashboardView.DisplayMessageWithRedraw(_machineService.Machine, "Washing cycle started! Progress will be shown on dashboard.");
         }
@@ -480,7 +469,7 @@ public class WashingMachineController : IWashingMachineController
         try
         {
             _logger.Log("Controller", "Saving all machine states and data before exit");
-            _machineStateRepository.Save(_machineService.Machine);
+            SaveMachineState();
             _historyService.SaveChanges();
             _favouriteService.SaveChanges();
             Console.WriteLine("\n[WashMate] All data saved successfully.");
@@ -495,6 +484,16 @@ public class WashingMachineController : IWashingMachineController
     private void OnProgressChanged(object? sender, WashProgressEventArgs e)
     {
         _logger.Log("Progress", $"Stage={e.Stage}, {e.ProgressPercentage:F1}%, {e.RemainingSeconds}s left");
+        SaveMachineState();
+    }
+
+    private void SaveMachineState()
+    {
+        lock (_machineSaveLock)
+        {
+            try { _machineStateRepository.Save(_machineService.Machine); }
+            catch (Exception ex) { _logger.LogError("MachineStateSave", ex.ToString()); }
+        }
     }
 
     private void OnCycleCompleted(object? sender, EventArgs e)
@@ -536,10 +535,7 @@ public class WashingMachineController : IWashingMachineController
         }
         else
         {
-            _machineService.Machine.State = MachineState.Idle;
-            _machineService.Machine.IsDoorLocked = false;
-            _machineService.Machine.CurrentCycle = null;
-            _machineService.Machine.ClothesCount = 0;
+            _machineService.ResetMachine();
             Console.WriteLine("\nMachine state has been reset.");
             Console.WriteLine("Press Enter to continue...");
             Console.ReadLine();
@@ -555,10 +551,6 @@ public class WashingMachineController : IWashingMachineController
     private void ShowCancellationScreen()
     {
         _logger.Log("Cycle", "Showing cancellation screen");
-
-        // Reset clothes count immediately on cancellation
-        _machineService.Machine.ClothesCount = 0;
-        _logger.Log("Cancel", "Clothes count reset to 0");
 
         // Clear content area and show cancellation message
         _dashboardView.ClearContentArea();

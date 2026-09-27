@@ -27,6 +27,7 @@ public interface IWashingMachineService
     void CancelCycle();
 
     void RestoreState(WashingMachineModel machine);
+    void ResetMachine();
 
     /// <summary>Resumes a previously interrupted cycle in the background. Does NOT block.</summary>
     void ResumeSavedCycle();
